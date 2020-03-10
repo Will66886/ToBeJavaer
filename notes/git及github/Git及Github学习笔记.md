@@ -5,7 +5,7 @@
 ## 一、Git是什么
 分布式版本控制系统
 
-![图片描述](image/git架构图.jpg)
+![图片描述](../../image/git架构图.jpg)
 
 Remote: 远程仓库
 
