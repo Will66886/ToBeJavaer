@@ -530,23 +530,292 @@ double[][] balances;
 
 #### 4.2.2、Java类库中的localDate类
 
+- static LocalDate now()：构造一个表示当前日期的对象
+- static LocalDate of(int year,int month,int day)：构造一个表示给定日期的对象
+- int getYear()
+- int getMonthValue()
+- int getDayofMonth()：得到当前日期的年、月、日
+- DayOfWeek getDayOfWeek：得到当前日期是星期几，作为一个DayOfWeek的实例返回，调用getValue来得到1~7之间的一个数，表示这是星期几，1表示星期一，7表示星期日
+- LocalDate plusDays(int n)
+- LocalDate miusDays(int n)：生成当前日期之后或之前n天的日期
+
 #### 4.2.3、更改器方法与访问器方法
 
 更改器方法：改变对象的状态的方法，例如set方法
 
 访问器方法：只访问对象而不修改对象的方法，例如get方法
 
+### 4.3、用户自定义类
+
+#### 4.3.1、Employee类
+
+#### 4.3.2、多个源文件的使用
+
+javac Employee*.java
+
+javac EmployeeTest.java：如果Employee被调用，编译器会自动编译Employee，反之则不会编译
+
+#### 4.3.3、剖析Employee类
+
+==强烈建议将实例字段标记为private==
+
+#### 4.3.4、从构造器开始
+
+在构造Employee类的对象时，构造器会运行，从而将实例字段初始化为所希望的初始状态
+
+构造器：
+
+- 构造器与类名相同
+- 每个类有一个或多个参数
+- 构造器可以有0个、1个或多个参数
+- 构造器没有返回值
+- 构造器总伴随着new操作符一起调用
+
+#### 4.3.5、用var声明局部变量
+
+在==Java10==中
+
+```java
+Emloyee harry = new Employee("Herry Hacker",50000,1989,10,1);
+var harry = new Employee("Herry Hacker",50000,1989,10,1);
+```
+
+var关键字只能用于方法中的局部变量。参数和字段的类型必须声明
+
+#### 4.3.6、使用null引用
+
+==Java9==中Objects类提供的null判断方法：
+
+- static <T\> T requireNonNull(T obj,String message)：检查指定的对象引用是否为null ，如果是，则抛出自定义的NullPointerException。
+- static <T\>T requireNotNullElse(T obj,T defaultObj)：如果它是非 null ，则返回第一个参数，否则返回非 null第二个参数。 
+
+#### 4.3.7、隐式参数与显式参数
+
+```java
+public void raiseSalary(double byPercent){
+    double raise = salary * byPercent / 100;
+    salary += raise;
+}
+```
+
+显式参数：又称为方法调用的目标或接收者，位于方法名后面的括号中，上面byPercent就是显式参数
+
+隐式参数：是出现方法名前的对象，上面salary就是显式参数
+
+#### 4.3.8、封装的优点
+
+```java
+public String getName(){
+    return name;
+}
+public double getSalary(){
+    return salary;
+}
+public LocalDate getHireDay(){
+    return hireDay
+}
+```
+
+字段访问器：只返回实例字段值的方法
+
+想要获取或设置实例字段的值，需要提供三项内容：
+
+- 一个私有的数据字段
+- 一个公共的字段访问器方法
+- 一个公共的字段修改器方法
+
+==不要编写返回可变对象引用的访问器方法==
+
+```java
+class Employee{
+    private Date hireDay;
+    public Date getHireDay(){
+        return hireDay;
+    }
+}
+```
+
+由于Date是可变的，harry和d引用的是同一对象，所以这样写破坏了封装性
+
+```java
+Employee2 harry = new Employee2();
+Date d = harry.getHireDay();
+double tenYears = 10*365.25*24*60*60*1000;
+Date date = d.setTime(d.getTime() - (long)tenYears);
+```
+
+直接导致在对d做修改时会同时修改harry的值
+
+```java
+class Employee{
+    private Date hireDay;
+    public Date getHireDay(){
+        return (Date)hireDay.clone();
+    }
+}
+```
+
+解决方案为克隆，对象克隆是指存放在另一个新位置上的对象副本
+
+#### 4.3.9、基于类的访问权限
+
+一个方法可以访问所属类的所有对象的私有数据
+
+#### 4.3.10、私有方法
+
+只要方法是私有的，类的设计者就可以确信它不会再别处使用，所以可以将其删除，而不影响其他代码
+
+#### 4.3.11、final实例字段
+
+final修饰的字段必须在构造对象时初始化
+
+final修饰符常用于修饰基本类型或者不可变类的字段
+
+```java
+class Employee{
+    private final String name;
+}
+```
 
 
 
+### 4.4静态方法
 
+#### 4.4.1、静态字段
 
+静态字段又称为类字段，如果将一个字段定义为static，每个类只有一个这样的字段
 
+```java
+class Employee{
+    private static int nextId = 1;
+    private int id;
+}
+```
 
+#### 4.4.2、静态常量
 
+```java
+public static final double PI = 3.141592653589323846
+```
 
+由于每个类对象都可以修改公共字段，所以，最好不要有公共字段。然而，公共常量(final)可以声明为公共，因为它不能被重新赋值
 
+#### 4.4.3、静态方法
 
+静态方法是不在对象上执行的方法
 
+```java
+public static int getNextId(){
+    retrun nextId;
+}
+int n = Employee.getNextId();
+```
 
+可以使用Employee对象调用静态方法，但不建议这样做，因为会与非静态方法混淆
+
+两种情况下可以使用静态方法
+
+- 方法不需要访问对象状态，因为它需要的所有参数都是通过显示参数提供(例如：Math.pow)
+- 方法只需要访问类的静态字段(例如：Employee.getNextId)
+
+#### 4.4.4、工厂方法
+
+#### 4.4.5、main方法
+
+static <T\> void requireNonNull(T obj)
+
+static <T\> void requireNonNull(T obj,String message)
+
+static <T\> void requireNonNull(T obj,Supplier<String\> messageSupplier)：java8
+
+如果obj为null，这些方法会抛出一个NullPointerException异常而没有消息或者给定的消息
+
+static <T\> T requireNonNullElse(T obj,T defaultObj)
+
+static <T\> T requireNonNullElseGet(T obj,Supplier<T\> defaultSupplier)
+
+如果obj不为null则返回obj，或者如果obj为null则返回默认对象
+
+### 4.5、方法参数
+
+按值调用：表示方法接受的是调用者提供的值
+
+按引用调用：表示方法接收的是调用者提供的变量地址
+
+==Java程序设计语言总是采用按值调用==
+
+Java中对方法参数能做什么和不能做什么：
+
+- 方法不能修改基本数据类型的参数(即数值型或布尔值)
+- 方法可以改变对象参数的状态
+- 方法不能让一个对象参数引用一个新的对象
+
+### 4.6、对象构造
+
+#### 4.6.1、重载
+
+重载：多个方法，有相同的名字、不同的参数。
+
+#### 4.6.2、默认字段初始化
+
+如果构造器中没有显式地为字段设置初始值，那么就会被自动地赋为默认值：数值为0、布尔值为false、对象引用为null，即使想要的值为默认值也应初始化字段
+
+#### 4.6.3、无参数的构造器
+
+public Employee(){
+
+​	name = "";
+
+​	salary = 0;
+
+​	hireDay = LocalDate.now();
+
+}
+
+如果写一个类时没有编写构造器，就会为你提供一个无参数构造器。这个构造器将所有的实例字段设置为默认值。
+
+当类没有其他任何构造器时，会有一个默认的无参构造器。如果你已经写了一个有参构造器，那么如果你想要构造一个无参对象，则必须写一个无参构造器
+
+#### 4.6.4、显式字段初始化
+
+一般常量static final 声明字段在声明时直接初始化
+
+其他字段建议在构造器中初始化
+
+比如类Demo有个Map类型成员变量，如果直接赋值，那么就必须要指定这个Map是何种Map,而通过构造函数赋值，这个就不确定了，有可能是各种Map的实现。所以，通过构造函数与set方法赋值，能够使程序更加的灵活，也能够体现多态的面向对象的特征。
+
+==有点看不懂回头再看==<https://coolshell.cn/articles/1106.html>
+
+#### 4.6.5、参数名
+
+#### 4.6.6、调用另一个构造器
+
+如果构造器的第一个语句形如this(...)，这个构造器将调用同一个类的另一个构造器
+
+```java
+public Employee(double s){
+    this("Employee #" + nextId, s);
+    nextId++;
+}
+```
+
+#### 4.6.7、初始化块
+
+初始化数据三种方法：
+
+- 在构造器中设置值
+- 在声明中赋值
+- 在初始化块中赋值
+
+初始化块：只要构造这个类的对象，这些块就会被执行
+
+在一个类声明中，可以包含任意多个代码块
+
+为了避免字段重复定义，建议总是将初始化块放在字段定义之后
+
+Random()：构造一个新的随机数生成器
+
+int nextInt(int i)：返回一个0~n-1之间的随机数
+
+#### 4.6.8、对象析构与finalize方法
 

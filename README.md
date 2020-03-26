@@ -1,6 +1,6 @@
 # ToBeJavaer
 
-由浅入深
+由浅入深，如果过度分心，直接拒之门外
 
 学习路线
 
@@ -22,3 +22,4 @@ HTML5 --> CSS3 --> javascrip --> Vue.js --> React.js
 
 算法第四版 --> leetcode
 
+UML

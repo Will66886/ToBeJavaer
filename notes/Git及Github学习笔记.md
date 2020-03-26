@@ -5,7 +5,7 @@
 ## 一、Git是什么
 分布式版本控制系统
 
-![图片描述](../../image/git架构图.jpg)
+![图片描述](../image/git架构图.jpg)
 
 Remote: 远程仓库
 
@@ -166,10 +166,10 @@ Settings --> SSH and GPG keys --> New SSH key --> 填写Title --> 复制id_rsa.p
 ### 二、添加远程仓库
 
 点击右上角+号 --> create a new repo
-![图片描述](../../image/新建仓库设置.png)
+![图片描述](../image/新建仓库设置.png)
 
 常用开源许可证关系图
-![](../../image/开源许可证关系.png)
+![](../image/开源许可证关系.png)
 
 ### 三、本地仓库关联远程仓库
 
@@ -186,6 +186,12 @@ git push -u origin master
 
 
 ## 六、创建与合并分支
+
+git checkout -b dev：创建并切换分支
+
+git branch：查看当前分支
+
+
 
 
 
