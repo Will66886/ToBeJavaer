@@ -84,6 +84,18 @@ public class FirstSample{
 | char    | 2b       | UTF-16编码中的一个**代码单元**                               |
 | boolean | 1b       |                                                              |
 
+| 转义序列 | 名称   | Unicode值 |
+| -------- | ------ | --------- |
+| \b       | 退格   | \u0008    |
+| \t       | 制表   | \u0009    |
+| \n       | 换行   | \u000a    |
+| \r       | 回车   | \u000d    |
+| \\"      | 双引号 | \u0022    |
+| \\'      | 单引号 | \u0027    |
+| \\\      | 反斜杠 | \u005c    |
+
+
+
 ### 3.4、变量与常量
 
 ```java
@@ -178,6 +190,14 @@ condition 为true 值为expression<sub>1</sub>反之为expression<sub>2</sub>
 ![](../image/运算符优先级.jpg)
 
 ### 3.6、字符串
+
+```java
+String str1 = "abc";
+String str2 = "abc";
+String str3 = new String("abc");
+```
+
+![](../image/字符串的常量池.png)
 
 #### 3.6.2、拼接
 
@@ -818,4 +838,421 @@ Random()：构造一个新的随机数生成器
 int nextInt(int i)：返回一个0~n-1之间的随机数
 
 #### 4.6.8、对象析构与finalize方法
+
+### 4.7、包
+
+#### 4.7.1、包名
+
+使用包的主要原因是确保类名的唯一性
+
+#### 4.7.2、类的导入
+
+一个类可以使用所属包中的所有类，以及其他包中的公共类(public class)
+
+两种方式访问一个包中的公共类：
+
+- 完全限定名：java.time.LocalDate today = java.time.LocalDate.now();
+- import语句
+
+#### 4.7.3、静态导入
+
+静态导入允许导入静态方法和静态字段，而不只是类
+
+```java
+import static java.lang.StrictMath.random;
+random();
+```
+
+#### 4.7.4、在包中增加类
+
+想要将类放入包中，就必须将包的名字放在源文件的开头，即放在定义这个包中各个类的代码之前
+
+如果没有在源文件中放置package语句，这个源文件中的类就属于无名包
+
+编译器不检查目录结构，虚拟机需要通过目录找到类
+
+#### 4.7.5、包访问
+
+public：任意类使用
+
+private：只能由它们定义的类使用
+
+(defaul)：同一个包下的类使用
+
+ protected：子类使用
+
+#### 4.7.6、类路径
+
+#### 4.7.7、设置类路径
+
+### 4.8、JAR文件
+
+#### 4.8.1、创建JAR文件
+
+#### 4.8.2、清单文件
+
+#### 4.8.3、可执行JAR文件
+
+#### 4.8.4、多版本JAR文件
+
+#### 4.8.5、关于命令行选项的说明
+
+### 4.9、文档注释
+
+#### 4.9.1、注释的插入
+
+#### 4.9.2、类注释
+
+#### 4.9.3、方法注释
+
+- @param variable description：参数
+- @return description：返回
+- @throws class description：可能抛出的异常
+
+#### 4.9.4、字段注释
+
+#### 4.9.5、通用注释
+
+- @since text：始于，text可以是引入这个特性的版本的任何描述，@since 1.7.1
+- @author name：作者
+- @version text：版本
+- @see reference：参见
+- @Link：链接
+- @index：搜索框条目
+
+#### 4.9.6、包注释
+
+#### 4.9.7、注释抽取
+
+### 4.10、类设计技巧
+
+1. 一定要保证数据私有
+
+2. 一定要对数据进行初始化
+
+3. 不要在类中使用过多的基本数据类型
+
+4. 不是所有的字段都需要单独的字段访问器和字段更改器
+
+5. 分解有过多职责的类
+
+6. 类名和方法名要能够体现它们的职责：
+
+   类名应当是一个名词(Order)，或者是前面有形容词修饰的名词(RushOrder)，或者是有动名词(有"-ing"后缀)修饰的名词
+
+   访问器方法用小写的get开头
+
+   更改器方法用小写的set开头
+
+7. 优先使用不可变得类
+
+   如果多个线程试图同时更新一个对象，就会发生并发更改
+
+## 第五章、继承
+
+继承的基本思想是，可以基于已有的类创建新的类
+
+反射是指在程序运行期间更多地了解类及其属性的能力
+
+### 5.1、类、超类、和子类
+
+#### 5.1.1、定义子类
+
+关键字**extends**表明正在构造的新类派生于一个已存在的类
+
+这个已存在的类称为***超类、基类或父类***
+
+新类称为***子类或孩子类***
+
+子类中没有显式地定义超类的方法，但是可以对子类的对象使用这些方法，这是因为子类类自动地继承了超类中的方法
+
+应该将最一般的方法放在超类中，而将更特殊的方式放在子类中
+
+#### 5.1.2、覆盖方法
+
+超类的方法并不一定适用于子类，为此需要一个新的方法***覆盖***超类中的方法
+
+子类已经覆盖了超类的方法，但是又需要调用超类的方法，这时候需要使用super关键字
+
+```java
+super.getSalary;
+```
+
+在子类中可以增加字段、增加方法或覆盖超类的方法，不过继承绝对不会删除任何字段或方法
+
+#### 5.1.3、子类构造器
+
+多态：一个对象变量可以指示多种实际类型的现象称为多态
+
+动态绑定：在运行时能够自动选择适当的方法称为动态绑定
+
+#### 5.1.4、继承层次
+
+继承层次：由一个公共超类派生出来的集合称为继承层次
+
+继承链：从某个特定的类到其祖先的路径称为该类的继承链
+
+#### 5.1.5、多态
+
+替换原则：程序中出现超类对象的任何地方都可以使用子类的对象替换
+
+对象变量是多态的，一个超类的变量既可以引用一个超类的对象，也可以引用任何一个子类的对象
+
+#### 5.1.6、理解方法调用
+
+假设要调用.f(args)，x声明为C类的一个对象，调用的详细描述：
+
+1. 编译器查看对象的声明类型和方法名
+
+2. 编译器确定方法调用中提供的参数类型。如果在所有名为f的方法中存在一个与所提参数类型完全匹配的方法，就选这个方法，这个过程称为***重载解析***
+
+   签名：方法的名字和参数列表称为方法的签名
+
+   子类方法覆盖超类方法并修改返回类型，则称为这两个方法有***可协变***的返回类型
+
+3. 如果是private方法、static方法、final方法或者构造器，那么编译器将可以准确地知道应该调用哪个方法。这个称为***静态绑定***
+
+4. 程序运行并且采用动态绑定调用方法时，虚拟机必须调用与x所引用对象的实际类型对应的那个方法
+
+调用e.getSalary()的解析过程为：
+
+1. 首先，虚拟机获取e的实际类型的方法表
+2. 之后，虚拟机查找定义了getSalary签名的类
+3. 最后，虚拟机调用这个方法
+
+动态绑定重要特性：无序对现有的代码进行修改就可以对程序进行扩展
+
+在覆盖方法的时候，子类的方法不能低于超类方法的可见性。
+
+#### 5.1.7、阻止继承：final类和方法
+
+不允许扩展的类被称为final类
+
+类中的某个方法也可以被声明为final。如果这样做，子类就不能覆盖这个方法，final类中的所有方法自动地成为final方法，但字段不会被声明为final
+
+如果一个方法没有被覆盖并且很短，编译器就能够对它进行优化处理，这个过程称为***内联***，比如说e.getName()，编译器会将其替换为e.name
+
+#### 5.1.8、强制类型转换
+
+将一个类型强制转换成另一个类型的过程称为强制类型转换
+
+强制类型转换的作用是，要在暂时忽视对象的实际类型之后使用对象的全部功能
+
+instanceof关键字：判断一个对象是否为这个类的实例
+
+```java
+Student s = new Student;
+s instanceof Student //true
+```
+
+强制类型转换使用注意事项：
+
+- 只能在继承层次内进行强制类型转换
+- 在将超类强制类型转换为子类之前，应该使用instanceof进行检查
+
+注意：
+
+```java
+s = null;
+s instanceof Student//false
+```
+
+如果s为null，判断不会发生异常，因为null没有引用任何对象
+
+尽量少使用强制类型转换和instanceof关键字
+
+#### 5.1.9、抽象类
+
+父类中的方法，被它的子类们重写，子类各自的实现都不尽相同。那么父类的方法声明和方法主体，只有声明还有意义，而方法主体则没有存在的意义了。我们把没有方法主体的方法称为抽象方法，用abstract关键字声明抽象类。Java语法规定，包含抽象方法的类就是抽象类。
+
+定义：
+
+1. 抽象方法：没有方法体的方法。
+2. 抽象类：包含抽象方法的类。
+
+```java
+public abstract class Person{
+    public abstract String getDescription();
+}
+```
+
+有抽象方法的类必须声明为抽象类，但是即便不含抽象方法的类，也可以声明抽象类
+
+超类为抽象类的子类，声明时必须重写父类方法
+
+抽象类不能实例化
+
+#### 5.1.10、受保护访问
+
+1. private：仅对本类可见
+2. public：对外部完全可见
+3. protected：对本包和所有子类可见
+4. 默认：对本包可用
+
+### 5.2、Object：所有类的超类
+
+Object类是Java所有类的始祖
+
+如果没有明确地指出超类，Object就被认为是这个类的超类
+
+#### 5.2.1、Object类型的变量
+
+Java当中，只有基本数据类型不是对象
+
+所有数组类型，不管对象数组还是基本数据类型的数组都扩展了Object类
+
+#### 5.2.2、equals方法
+
+Object类中的equals方法用于检测一个对象是否等于另一个对象
+
+#### 5.2.3、相等测试与继承
+
+Java语言规范要求equals方法具有的特性：
+
+1. 自反性：对于任何非空引用x，x.equals(x)应该返回true
+2. 对称性：对于任何引用x和y，当且仅当y.equals(x)返回true时，x.equals(y)返回true
+3. 传递性：对于任何引用x，y和z，如果x.equals(y)返回true，y.equals(z)返回true，x.equals(z)也应该返回true。
+4. 一致性：如果x和y引用的对象没有发生变化，反复调用x.equals(y)应该返回同样的结果。
+5. 对于任意非空引用x，x.equals(null)应该返回false
+
+```JAVA
+public class Empolyee{
+    public boolean equals(Object otherObject){
+        //a quick test to see if the Objects are identical
+        if(this == otherObject) return true;
+        //must return false if the explicit paramenter is null
+        if(otherObject == null) return false;
+        //if the classes don`t match,they can`t equal
+        if(getClass() != otherObject.getClass())
+            return false;
+        //now we know otherObject is a non-null Employee
+        Employee other = (Employee)otherObject;
+        //test whether the fields have identical values
+        return name.equals(other.name)
+            && salary == other.salary 
+            && hireDay.equals(other.hireDay);
+    }
+}
+```
+
+编写一个完美的equals方法的建议：
+
+1. 显式参数命名为otherObject，稍后需要将他强制转换成另一个名为other的变量
+
+2. 检测this与otherObject是否相等：意思是检测otherObject是否为该对象本身
+
+   if(this == otherObject) return true;
+
+3. 检测otherObject是否为null
+
+   if(otherObject == null) return false;
+
+4. 比较this与otherObject的类：
+
+   - 如果equals的语义可以在子类中改变，就使用getClass检测
+
+     if(getClass() != otherObject.getClass()) return false;
+
+   - 如果所有子类都有相同的相等性语义，可以使用instanceof检测
+
+     if(!(otherObject instanceof ClassName)) return false;
+
+5. 将otherObject强制转换为相应类类型的变量
+
+   Employee other = (Employee)otherObject;
+
+6. 根据相等性概念的要求改比较字段。使用 == 比较基本类型字段。使用Objects.equals比较对象字段。
+
+   如果所有字段都匹配，就返回true，否则返回false
+
+   return name.equals(other.name)
+               && salary == other.salary 
+               && hireDay.equals(other.hireDay);
+
+   如果在子类中重新定义equals，就要在其中包含一个super.equals(other)调用
+
+
+
+可以使用@Override标记要覆盖超类方法的那些子类方法，如果签名不一致就会报错
+
+java.util.Arrays:
+
+- static boolean equals(xxx[] a,xxx[] b) ==5==：如果两个数组长度相同，并且在对应的位置上数据元素也相同，将返回true
+
+java.util.Objects
+
+- static boolean equals(Object a,Object b) ==7== ：如果a和b都为null，返回true；如果只有其中之一为null，返回false；否则返回a.equals(b)
+
+#### 5.2.4、hashCode方法
+
+散列码(hash code)是由对象导出的一个整型值
+
+String类使用计算散列码：
+
+```java
+int hash = 0;
+for(int i = 0;i < lenth(); i++){
+    hash =31 * hash + charAt(i);
+}
+```
+
+如果重新定义了equals方法，就必须为用户可能插入散列表的对象重新定义hashcode方法
+
+equals与hashCode的定义必须相容：如果x.equals(y) 返回true，那么x.hashCode()就必须与y.hashCode()返回相同的值
+
+java.lang.Object:
+
+- int hashCode()：返回对象的散列码。散列码可以是任意的整数，包括正数或负数。两个相等的对象要求返回相等的散列码
+
+java.util.Objects: ==7==
+
+- static int hash(Object... objects)：返回一个散列码，由提供的所对象的散列码组合而得到
+- static int hashCode(Object a)：如果a为null返回0，否则返回a.hashCode()
+
+java.lang.(Integer|Long|Short|Byte|Double|Float|Character|Boolean)
+
+- static int hashCode(xxx value)：==8==返回给定制的散列码。这里xxx是对应给定包装类型的基本类型。
+
+java.util.Arrays
+
+- static int hashCode(xxx[] a)：==5==计算数组a的散列码。组成这个数组的元素类型xxx可以是Object、int、long、short、char、byte、boolean、float或double
+
+#### 5.2.5、toString方法
+
+toString方法：返回表示对象值的一个字符串
+
+java.lang.Object:
+
+- Class getClass()：返回包含对象信息的类对象
+- boolean equals(Object otherObject)：比较两个对象是否相等，如果两个对象指向同一块存储取余，返回true，否则返回false，要在自定义的类中覆盖这个方法
+- String toString()：返回表示该对象值的字符串，要在自定义的类中覆盖这个方法
+
+java.lang.Class：
+
+- String getName()：返回这个类的名字
+- Class getSuperClass()：以Class对象的形式返回这个类的超类
+
+### 5.3、泛型数组列表
+
+ArrayList是一个有类型参数的泛型类
+
+#### 5.3.1、声明数组列表
+
+java.util.ArrayList<E\> 
+
+- ArrayList<E\>()：构造一个空数组列表
+- ArrayList<E\>(int initialCapacity)
+- boolean add(E obj)：一旦加了一个元素，数组列表就会将容量定为10
+- int size()
+- void ensureCapacity(int capacity)：确保数组列表在不重新分配内部存储数组的情况下有足够的容量存储给定数量的元素
+- void trimTosize()：可将数组列表的存储容量削减到当前大小
+
+#### 5.3.2、访问数组列表元素
+
+java.util.Arrays<E\>
+
+- E set(int index,E obj)
+- E get(int index)
+- void add(int index,E obj)
+- E remove(int index)
 
