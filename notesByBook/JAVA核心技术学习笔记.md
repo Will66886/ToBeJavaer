@@ -1,6 +1,6 @@
 # Core Java Study Notes
 
-![JAVA核心技术](..\image\JAVA核心技术.jpg)
+![JAVA核心技术](JAVA核心技术学习笔记.assets/JAVA核心技术.jpg)
 
 ## 第一章 Java程序设计概述
 
@@ -144,7 +144,7 @@ floodMod
 
 #### 3.5.3、类型转换
 
-![类型转换关系图](../image/类型转换关系图.png)
+![类型转换关系图](JAVA核心技术学习笔记.assets/类型转换关系图.png)
 
 #### 3.5.6、自增与自减运算
 
@@ -163,7 +163,7 @@ int b = 2*n++; ==等价于 int b = 2\*n+1==
 
 ### 3.5.7、运算符
 
-![逻辑运算符](..\image\逻辑运算符.png)
+![逻辑运算符](JAVA核心技术学习笔记.assets/逻辑运算符.png)
 
 & 与 && 的区别：& 和 | 左右两边的式子一定会执行（比较笨），&& 和 || 只要左边的式子能得出结果，右边的式子就不会执行（比较聪明）。
 
@@ -187,7 +187,7 @@ condition 为true 值为expression<sub>1</sub>反之为expression<sub>2</sub>
 
 运算符优先级
 
-![](../image/运算符优先级.jpg)
+![](JAVA核心技术学习笔记.assets/运算符优先级.jpg)
 
 ### 3.6、字符串
 
@@ -197,7 +197,7 @@ String str2 = "abc";
 String str3 = new String("abc");
 ```
 
-![](../image/字符串的常量池.png)
+![](JAVA核心技术学习笔记.assets/字符串的常量池.png)
 
 #### 3.6.2、拼接
 
@@ -1255,4 +1255,650 @@ java.util.Arrays<E\>
 - E get(int index)
 - void add(int index,E obj)
 - E remove(int index)
+
+#### 5.3.3、类型化与原始数组列表的兼容性
+
+声明ArrayList时，如果没有声明类型参数，则默认为Object
+
+```java
+public class EmployeeDB{
+    public void update(ArrayList list){}
+    public ArrayList find(String query){}
+}
+```
+
+```java
+ArrayList<EmployeeDB> staff = ...;
+employee.update(staff);
+```
+
+这时不需要将staff强制转换，但是依然是有风险的，update方法有可能无法处理EmployeeDB类型
+
+```java
+ArrayList<Employee> result = employeeDB.find(query);
+```
+
+这时返回的数组列表的类型参数是未知的，如果返回类型无法强转为Employee则会报java.lang.ClassCastException强制转换异常错误
+
+```java
+@SuppressWarnings("unchecked")
+```
+
+用上述注解，可以标记接受强制类型转换的变量，暂时忽略编译器的警告
+
+### 5.4、对象包装器与自动装箱
+
+包装器：将基本类型转换为对象的类称为包装器
+
+ArrayList的类型参数不允许是基本数据类型
+
+ArrayList<Integer\>效率远低于int[]，所以除非必须要ArrayList，否则用int[]
+
+自动装箱：调用list.add(3)编译器会自动变换为list.add(Integer.valueOf(3))，这种变换称为自动装箱
+
+自动拆箱：int n = list.get(i) ==> int n = list,get(i).intValue();
+
+尽量避免频繁自动装拆箱，虽然自动拆装箱是编译器的工作，但是频繁的创建对象会占用虚拟机内存
+
+java.lang.Integer：
+
+- int inValue
+- static String toString(int i)
+- static String toString(int i,int radix)：返回数值i基于radix参数指定进制的表示
+- static int parseInt(String s)
+- static int parseInt(String s,int radix)：返回字符串s表示整数，采用radix参数指定的进制
+- static Integer valueOf(String s)
+- static Integer valueOf(String,int radix)
+
+java.text.NumberFormat
+
+- Number parse(String s)：假设s表示的是一个数值，返回数字值
+
+### 5.5、参数数量可变的方法
+
+变参方法：可以提供参数数量可变的方法
+
+```java
+public static double max(double... values){
+    double largest = Double.NeGTIVE_INFNITY;
+    for(double v:values){
+        if(v>largest){
+            largest = v;
+        }
+    }
+    return largest;
+}
+```
+
+### 5.6、枚举类
+
+```java
+public enum Size{SMALL,MEDIUM,LARGE,EXTRA_LARGE}
+```
+
+可以为枚举类型增加构造器、方法和字段
+
+枚举的构造器总是私有的，可以省略private修饰符
+
+### 5.7、==反射==
+
+反射：能够分享类能力的程序称为反射
+
+反射使用场景：
+
+- 在运行时分析类的能力
+- 在运行时检查对象
+- 实现泛型数组操作代码
+- 利用Method对象
+
+#### 5.7.1、Class类
+
+Java运行时系统始终为所有对象维护一个运行时的类型标识，保存这些类型标识的类名为Class
+
+获得Class类对象的三种方法：
+
+```java
+var generator = new Random();
+Class c1 = generator.getClass();
+
+String className = "java.util.Random";
+Class c2 = Class.forName(className);
+
+Class c4 = Random.class;
+```
+
+虚拟机为每个类型管理一个唯一的Class对象。因此，可以利用 == 运算符实现两个类对象的比较
+
+```java
+var c1 = Class.forName("java.util.Random");
+Object obj = c1.getConstructor().newInstance();
+```
+
+Class类型对象，调用getConstructor方法获得Constructor类型对象，再调用newInstance方法来构造一个实例
+
+java.lang.Class
+
+- string getName()：返回这个类的类名及包名
+
+- static Class forName(String className)：返回一个Class对象，表示名为className的类
+- Constructor getConstructor(Class... parameterType)：生成一个对象，描述有指定参数类型的构造器
+
+java.lang.reflect.Constructor
+
+- Object newInstance(Object... params)：将params传递到构造器，来构造这个构造器声明类的一个新实例
+
+java.lang.Throwable
+
+- void printStackTrace()：将Throwable对象和堆栈轨迹打印到标准错误流
+
+#### 5.7.2、声明异常入门
+
+处理器可以捕获异常并进行处理
+
+检查型异常：建议其将会检查你是否知道这个异常并做好准备来处理后果
+
+非检查型异常：编译器并不期望你为这些异常提供处理器
+
+#### 5.7.3、资源
+
+java.lang.Class
+
+- URL getResource(String name)
+
+- InputStream getResourceAsStream(String name)
+
+  找到与类位于同一位置的资源，返回一个可以用来加载资源的URL或输入流
+
+#### 5.7.4、利用反射分析类的能力
+
+java.lang.Class：
+
+- Field[] getFields()：返回一个包含Field对象的数组，这些对象对应这个类或其他超类的公共字段
+
+- Field[] getDeclaredFields()：只返回当前类的公共字段，不返回超类的公共字段
+
+- Method[] getMethods()：返回包含Method对象的数组，包含该类及继承自超类的所有公共方法
+
+- Method[] getDeclaredMethods()
+
+- Constructor[] getConstructors()：返回包含Constructor对象的数组，包含该类及继承自超类的所有公共构造器
+
+- Constructor[] getDeclaredConstructors();
+
+- String getPackageName()：==9==得到包含这个类型的包的包名，如果这个类型是一个数组类型，则返回元素类型所属的包，或者如果这个类型是一个基本数据类型，则返回“java.lang”
+
+java.lang.reflect.Field
+
+java.lang.reflect.Method
+
+java.lang.reflect.Constructor
+
+- Class getDeclaringClass()：返回一个Class对象，表示定义了这个构造器、方法或字段的类
+
+- Class getExceptionType()(在Constructor和Method classes类中)
+
+  返回一个Class对象数组，其中各个对象表示这个方法所抛出的异常的类型
+
+- int getModifiers()：返回一个整数，描述这个构造器、方法或字段的修饰符。使用Modifier类中的方法来分析这个返回值
+
+- String getName()
+
+- Class[] getParameterTypes()(在Constructor和Method classes类中)
+
+  返回一个Class对象数组，其中各个对象表示参数的类型
+
+- Class getReturnType()(在Method类中)
+
+java.lang.reflect.Modifier
+
+- static String toString(int modifiers)：返回一个字符串，包含对应modifiers中位设置的修饰符
+
+- static boolean isAbstract(int modifiers)
+- static boolean isAbstract(int modifiers)
+- static boolean isFinal(int modifiers)
+- static boolean isInterface(int modifiers)
+- static boolean isNative(int modifiers)
+- static boolean isPrivate(int modifiers)
+- static boolean isProtected(int modifiers)
+- static boolean isPublic(int modifiers)
+- static boolean isStatic(int modifiers)
+- static boolean isStrict(int modifiers)
+- static boolean isSynchronized(int modifiers)
+- static boolean isVolatile(int modifiers)
+
+这些方法将检测modifiers值中与方法明中修饰符对应的二进制位
+
+#### 5.7.5、使用反射在运行时分析对象
+
+利用反射机制可以查看在编译时还不知道的对象字段
+
+java.lang.reflect.AccessibleObject
+
+- void setAccessible(boolean flag)：设置或取消这个可访问对象的可访问标志，如果拒绝访问则抛出一个IllegalAccessException异常
+- boolean trySetAccessible()：==9==为这个可访问的对象设置可访问标志，如果拒绝则返回false
+- boolean isAccessible()：得到这个可访问对象的可访问标志值
+- static void setAccessible(AccessibeObject[] array,boolean flag)：设置一个对象数组的可访问标志
+
+java.lang.Class
+
+- Field getField(String name)：得到指定名的公共字段
+- Field[] getFields()：所有这些字段的一个数组
+- Field getDeclaredField(String name)
+- Fields getDeclaredFields()
+
+java.lang.reflect.Field
+
+- Object get(Object obj)：返回obj对象中用这个Field对象描述的字段的值
+- void set(Object obj,Object newValue)：将Obj对象中这个Field对象描述的字段设置为一个新值
+
+#### 5.7.6、使用反射编写泛型数组代码
+
+java.lang.reflect.Array
+
+- static Object get(Object array,int index)
+
+- static xxx getXxx(Object array,int index)
+
+  (xxx 是boolean、byte、char、double、float、int、long、short中的一种基本类型)这些方法将返回存储给定数组中给定索引位置上的值
+
+- static void set(Object array,int index,xxx newValue)
+
+- static void setXxx(Object array,int index,xxx newValue)
+
+#### 5.7.7、调用任意方法和构造器
+
+java.lang.reflect.Method
+
+- public Object invoke(Object implicitParamenter,Object[] explicitParamenter)
+
+  调用这个对象描述的方法，传入给定参数，并返回方法的返回值。对于静态方法，传入null作为隐式参数。使用包装器传递基本类型值。基本类型的返回值必须是未包装的
+
+### 5.8、继承的设计技巧
+
+1. 将公共操作和字段放在超类中
+2. 不要使用受保护的字段
+3. 使用继承实现“is-a”关系
+4. 除非所有继承的方法都有意义，否则不要使用继承
+5. 在覆盖方法时，不要改变预期的行为
+6. 使用多台，而不要使用类型信息
+7. 不要滥用反射
+
+## 第六章、接口、lambda表达式与内部类
+
+### 6.1、接口
+
+接口：接口用来描述类应该做什么，而不是指定他们应该具体做什么
+
+一个类可以实现一个或多个接口
+
+#### 6.1.1、接口的概念
+
+```java
+class Employee implements Comparable<Employee>{
+    public int compareTo(Employee other){
+        return Double.compare(salary,other.salary);
+    }
+}
+
+Arrays.sort(new Employee[3]);
+```
+
+想要调用Arrays.sort方法，显式参数类型必须实现接口Comparable，因为Arrays.sort必须调用compareTo方法
+
+接口不是类，而是对希望符合这个接口的类的一组需求
+
+接口中的所有方法都自动是public方法，因此，在接口中声明方法时，不必提供关键字public
+
+接口绝不会有实例字段
+
+让类实现接口步骤：
+
+1. 将类声明为实现给定的接口，关键字为implements
+2. 对接口中的所有方法提供定义
+
+实现接口时，必须把方法声明为public
+
+实现接口的主要原因是，Java是一种强类型语言，在调用方法的时候，编译器要能检查这个方法确实存在
+
+java.lang.Comparable<T\>
+
+- int copareTo(T other)：用这个对象与other进行比较，小于other返回负整数，等于返回0，大于返回正整数
+
+java.util.Arrays
+
+- static void sort(Object[] a)：对数组a中的元素排序，a中元素必须实现Comparable接口，并且元素之间必须可比较
+
+java.Iang.Integer
+
+- static int compare(int x,int y)：x<y返回负整数，x=y返回0，x>y返回正整数
+
+java.lang.Double
+
+- static int compate(double x,double y)
+
+#### 6.1.2、接口的属性
+
+接口不是类，不能通过new实例化接口
+
+接口变量必须应用实现了这个接口的类对象
+
+可以使用instanceof检查一个对象是否实现了某个特定的接口
+
+接口中不能包含实例字段，但可以包含常量
+
+接口中的方法都自动被设置为public一样，接口中的字段总是public static final
+
+#### 6.1.3、接口与抽象类
+
+每个类只能扩展一个类，但是每个类可以实现多个接口
+
+#### 6.1.4、静态和私有方法
+
+允许在接口中增加静态方法
+
+#### 6.1.5、默认方法
+
+可以为接口方法提供一个默认实现，必须用default修饰符标记这样一个方法
+
+```java
+public interface Iterator<E>{
+    boolean hashNext();
+    E next();
+    defualt void remove(){
+        throw new UnsupportedOperationException("remove");
+    }
+}
+```
+
+默认方法的一个重要用法是“接口演化”，如果接口增加了一个方法，只能通过默认方法来扩展，否则不能保证“源代码兼容”
+
+#### 6.1.6、解决默认方法冲突
+
+1. 如果这个类的超类与接口定义了同样签名的方法，超类优先
+
+   
+
+2. 如果这个类的两个接口中，其中一个接口定义了默认方法，另一个接口定义了同样签名的方法（不管这个方法是不是默认方法），这个类必须覆盖这个方法。但是当这两个接口都没有为共享方法提供默认实现，就不会引起冲突
+
+#### 6.1.7、接口与回调
+
+回调是一种常见的设计模式。在这种模式中，可以指定某个特定事件发生时应该采取的动作
+
+#### 6.1.8、Comparator接口
+
+#### 6.1.9、==对象克隆==
+
+```java
+var original = new Employee("John Public",50000);
+Employee copy = original;
+copy.raiseSalary(10);
+```
+
+当original对象建立copy副本后，copy修改salary值，同时original的salary的值也会改变，这时就需要clone
+
+```java
+Employee copy = original.clone();
+copy.raiseSalary(10);
+```
+
+默认的克隆操作是“浅拷贝”，并没有克隆对象中引用的其他对象。如果引用的对象是可变的，那么浅克隆出的对象所引用的对象还是会一同改变，如Date类的对象
+
+如果原对象的浅克隆对象共享的子对象是不可变的，那么这种共享就是安全的，如String对象
+
+浅拷贝同时克隆所有可变的引用对象就是深拷贝
+
+对于每一个类，需要确定：
+
+1. 默认的clone方法是否满足需求
+2. 是否可以在可变的子对象上调用clone来修补默认的clone方法
+3. 是否不该使用克隆
+
+第三项为默认选项，如果选择一二项，类必须：
+
+1. 实现Cloneable接口
+2. 重新定义clone方法，并指定public访问修饰符
+
+Object类中的clone方法声明为protected
+
+Cloneable接口的出现与接口的正常使用，这个接口的作用是，当一个对象请求克隆，但是没有实现这个接口，那么就会生成一个检查型异常
+
+Cloneable是一个少有的**标记接口**(或称为**记号接口**)，标记接口不包含任何方法，它的唯一作用就是允许在类型查询中使用instanceof
+
+### 6.2、lambda表达式
+
+lambda表达式是一个可传递的代码块，可以在一个执行一次或多次
+
+#### 6.2.1、为什么引入lambda表达式
+
+在引入lambda表达式之前，由于java是一种面向对象语言，传递一段代码块并不容易，必须构造一个对象，然后引用这个对象实现的方法来传递，所以引入lambda表达式来处理代码块
+
+#### 6.2.2、lambda表达式的语法
+
+1. 有参表达式：(参数) -> {表达式}
+
+```java
+(String first,String second) -> {first.length() - second.length()}
+```
+
+2. 无参表达式：() -> {表达式}
+
+```java
+() -> {
+    for (int i = 100; i>=0; i++){
+        System.out.println(i);
+    }
+}
+```
+
+3. 可推导出参数类型，可省略参数类型
+
+```java
+Comparator comp = (first , second) -> {
+    first.length() - second.length();
+}
+```
+
+4. 只有一个参数，且参数类型可推导，可以省略空格
+
+```java
+ActionListener listener = event -> 
+    System.out.println("The time is " + INstant.ofEpochMilli(event.getWhen()));
+```
+
+5. 无序指定lambda表达式的返回类型
+
+```java
+(String first,String second) -> {first.length() - second.length()}
+```
+
+#### 6.2.3、函数式接口
+
+函数式接口：对于只有一个抽象方法的接口，需要这种接口的对象是，就可以提供一个lambda表达式
+
+```java
+public class Test {
+    static IntCall intcall;
+    public static void main(String[] args) {
+        intcall = i -> {
+            if(i<10){
+                return i+intcall.call(i+1);
+            }else{
+                return i;
+            }
+        };
+        int i2 = intcall.call(1);
+    }
+}
+interface IntCall{
+    int call(int x);
+}
+```
+
+在java中，对lambda表达式所能做的也只是转换为函数式接口
+
+#### 6.2.4、方法引用
+
+```java
+var timer = new Timer(1000,event -> System.out.println(event));
+//lambda简写为
+var timer = new Timer(1000,System.out::println);
+```
+
+方法引用指示编译器生成一个函数式接口的实例，覆盖这个接口的抽象方法来调用给定的方法
+
+用 :: 运算符分割方法名与对象或类名：
+
+1. object :: instanceMethod
+2. Class :: instanceMethod
+3. Class :: staticMethod
+
+只有当lambda表达式的体只调用一个方法而不做其他操作时，才能把lambda表达式重写为方法引用
+
+#### 6.2.5、构造器引用
+
+构造器引用与方法引用很类似，只不过方法名为new。例如，Person::new是Person构造器的一个引用
+
+```java
+Arraylist<String> names = ...;
+Stream<Person> stream = names.stream().map(Person::new);
+List<Person> people =stream.collect(Collectors.toList());
+```
+
+Java有一个限制，无法构造泛型类型T的数组。数组构造器引用对于克服这个限制很有用。表达式new T[n]会产生错误，因为这会改为new Object[n]
+
+```java
+Person[] people = stream.toArray(Person[]::new);
+```
+
+#### 6.2.6、变量作用域
+
+lambda表达式中可以捕获外围作用域中的变量的值，但要确保所捕获的值是明确定义的。在lambda表达式中，只能引用值不会改变的变量。
+
+下面做法为不合法的，因为start是会改变的变量：
+
+```java
+public static void countDown(int start,int delay){
+    ActionListener listener = event -> {
+        start--;
+        System.out.println(start);
+    };
+    new Timer(delay,listener).start();
+}
+```
+
+如果在lambda表达式中引用一个变量，而这个变量可能在外部改变，这也是不合法的
+
+下面做法是不合法的，因为i在外部发生了改变：
+
+```java
+public static void repeat(String text,int count){
+    for(int i = 1; i <= count; i++){
+        ActionListener listener = event -> {
+            System.out.println(i + ":" + text);
+        };
+        new Timer(1000,listener.start());
+    }
+}
+```
+
+lambda表达式中捕获的变量必须实际上是事实最终变量，事实最终变量是指，这个变量初始化之后就不会再为它赋新值。
+
+lambda表达式的体育嵌套块有相同的作用域
+
+#### 6.2.7、处理lambda表达式
+
+使用lambda表达式的重点是延迟执行
+
+这样做的原因有：
+
+- 在一个单独的线程中运行代码
+- 多次运行代码
+- 在算法的适当位置运行代码
+- 发生某种情况是执行代码
+- 只在必要时才运行代码
+
+如果设计你自己的接口，其中只有一个抽象方法，可以用@FunctionalInterface注解来标记这个接口。这样做有两个优点。如果你无意中增加了另一个抽象方法，编译器会产生一个错误消息。另外javadoc页会指出你的接口是一个函数式接口
+
+#### 6.2.8、再谈Comparator
+
+### 6.3、内部类
+
+内部类是定义在另一个类中的类
+
+使用内部类的两个原因：
+
+- 内部类可以对同一个包中的其他类隐藏
+- 内部类方法可以访问定义这个类的作用域中的数据，包括原本私有的数据
+
+#### 6.3.1、使用内部类访问对象的状态
+
+一个内部类方法可以访问自身的数据，也可以访问创建它的外围对象的数据字段
+
+内部类的对象总有一个隐式引用，指向创建它的外部类对象
+
+类的可声明权限修饰符
+
+外部类：public、(defualt)
+
+内部类：public、protected、(defualt)、private
+
+#### 6.3.2、内部类的特殊语法规则
+
+使用外围类引用：OuterClass.this
+
+外围类的作用域之外引用内部类：OuterClass.InnerClass
+
+内部类不能有static方法
+
+#### 6.3.3、内部类是否有用、必要和安全
+
+内部类是一个编译器现象，与虚拟机无关。编译器将会把内部类转换为常规的类文件，用$分隔外部类名与内部类名，而虚拟机则对此一无所知
+
+内部类可以访问外围类的私有数据，但外部类则不能访问内部类的的私有数据
+
+如果内部类访问了私有数据字段，就有可能通过外围类所在包中增加的其他类访问那些字段
+
+#### 6.3.4、局部内部类
+
+声明局部类是不能有访问说明符。局部类的作用域被限定在声明这个局部类的块中
+
+局部类有个很大的优势，即对外部世界完全隐蔽
+
+#### 6.3.5、由外部方法访问变量
+
+局部类还有一个优点。它们不仅能够访问外部类的字段，还可以访问局部变量。不过局部变量必须是**事实最终变量**
+
+#### 6.3.6、匿名内部类
+
+假如只想创建这个类的对象，甚至不需要为类指定名字。这样一个类被称为匿名内部类
+
+```java
+new SuperType(construction parameters){
+    inner class methods and data
+}
+```
+
+SuperType如果是接口，匿名内部类就要实现这个接口；如果是类，匿名内部类就要扩展这个类
+
+```java
+var count = new Person("Dracula"){{initalization}};
+```
+
+尽管匿名类不能有构造器，但可以提供一个对象初始化块
+
+外层括号建立了ArrayList的一个匿名子类。内层括号则是一个对象初始化块
+
+#### 6.3.7、静态内部类
+
+使用内部类只是为了把一个隐藏在另一个类的内部，并不需要内部类有外围类对象的一个引用。为此，可以将内部类声明为static，这样就不会生成那个引用。
+
+只要内部类不需要方位外围类对象，就应该使用静态内部类。有些程序员用嵌套类表示静态内部类
+
+与常规类不同，静态内部类可以有静态字段可方法
+
+在接口中声明的内部类自动是static和public
+
+### 6.4、==服务加载器==
+
+### 6.5、==代理==
 
