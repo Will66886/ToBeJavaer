@@ -187,9 +187,19 @@ git push -u origin master
 
 ## 六、创建与合并分支
 
-git checkout -b dev：创建并切换分支
+git checkout -b dev：创建dev分支并切换分支到dev
 
 git branch：查看当前分支
+
+git branch dev：创建dev分支
+
+git branch -d dev：删除dev分支
+
+git checkout dev：切换分支到dev
+
+git merge dev：将dev分支的内容合并到此分支
+
+### 处理冲突
 
 
 

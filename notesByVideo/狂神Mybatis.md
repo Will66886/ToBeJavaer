@@ -951,7 +951,7 @@ select * from user limit 3 #[0,n]
 
 #### Mybatis详细执行流程
 
-![1569898830704](狂神Mybatis.assets/Temp.png)
+![Temp2](狂神Mybatis.assets/Temp2.jpg)
 
 ### 8.3、CRUD
 
