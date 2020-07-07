@@ -52,6 +52,12 @@ git init
 git add readme.txt
 ````
 
+将目录下的所有文件添加到暂存区
+
+```git
+git add .
+```
+
 #### 2、将文件从暂存区提交到版本库
 
 ````git

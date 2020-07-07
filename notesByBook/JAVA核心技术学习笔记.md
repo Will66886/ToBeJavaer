@@ -3030,6 +3030,8 @@ Object.clone Employee.clone方法被称为有协变的返回类型
 
 #### 8.6.1、不能用基本类型实例化类型参数
 
+基本类型无法被类型擦除
+
 #### 8.6.2、运行时类型查询只适用于原始类型
 
 虚拟机中的对象总有一个特定的非泛型类型。因此，所有的类型查询只产生原始类型
@@ -3038,8 +3040,10 @@ Object.clone Employee.clone方法被称为有协变的返回类型
 
 #### 8.6.3、不能创建参数化类型的数组
 
+不合法写法：
+
 ```java
-var table = new Pair<String>[10];
+var table = new Pair<String>[10]; // ✘
 ```
 
 擦除之后，table的类型是Pair[]。可以把它转换为Object[]：
@@ -3050,15 +3054,23 @@ Object[] objarray = table;
 
 数组会记住它的元素类型，如果试图储存其他类型的元素，就会抛出一个ArrayStoreException异常
 
-不过对于泛型类型，擦除会使这种机制无效
+不过对于泛型类型，擦除会使这种机制无效，比如以下赋值
 
 ```java
-objarray[0] = new Pair<Employee>();
+objarray[0] = new Pair<Employee>(); // ✘
 ```
 
 虽然能通过检查，但是仍然会导致类型错误，出于这个原因，不允许创建参数化类型的数组
 
 需要注意的是，只是不允许创建这些数组，而声明类型为Pair\<String>[]的变量仍然合法的，不过不能用new Pair\<String>[10]初始化这个变量
+
+```java
+Pair<String>[] pairs; // ✔
+Pair<String> pair1 = new Pair<>();
+Pair<String> pair1 = new Pair<>();
+pairs = new Pair[]{pair1, pair2};// ✔
+pairs = new Pair<String>(); // ✘
+```
 
 可以声明通配类型的数组，然后强制类型转换
 
@@ -3101,9 +3113,2201 @@ addAll(table,pair1,pair2);
 static <E> E[] array(E...array){
     return array;
 }
+Pair<String>[] table = array(pair1,pair2);
+
+Object[] objarray = table;
+objarray[0] = new Pair<Employee>();
 ```
 
-但并不能避免异常
+但这并不能避免异常，如果无意间调用了talble[0]，还是会在其他地方产生异常
+
+#### 8.6.5、不能实例化类型变量
+
+不能在类似new T(...) 的表达式中使用类型变量，因为T会被直接擦除为Object，这样是没有意义的
+
+不合法写法：
+
+```java
+public Pair(){// ✘
+    first = new T();
+    second = new T();
+}
+```
+
+替换方案：
+
+在Java8之后可以让调用者提供一个构造器表达式：
+
+```java
+Pair<String> p = Pair.makePair(String :: new);
+//makePair方法接受一个Supplier<T>，这是一个函数式接口，表示一个无参数而且返回类型为T的函数
+public static <T> Pair<T> makePair(Supplier<T> constr){
+    return new Pair<>(constr.get(),constr.get());
+}
+```
+
+Class类本身是泛型的。例如，String.class是一个Class\<String>的实例。因此makePair方法能够推断出所建立的对组的类型
+
+#### 8.6.6、不能构造泛型数组
+
+由于数组本身也带有类型，用来监控虚拟机中的数组存储。这个类型会被擦除，致使泛型无意义
+
+不合法写法：
+
+``` java
+public static <T extends Comparable> T[] minmax(T... a){ // ✘
+    T[] mm = new T[2]; 
+}
+```
+
+类型擦除会让它始终构造Comparable[2]数组
+
+解决方案：
+
+```java
+public class ListOfGenerics<T> {
+    private List<T> array = new ArrayList<>();
+
+    public void add(T item) {
+        array.add(item);
+    }
+
+    public T get(int index) {
+        return array.get(index);
+    }
+}
+```
+
+#### 8.6.7、泛型类的静态上下文中类型变量无效
+
+不合法写法：
+
+```java
+public class Singleton<T>{// ✘
+    private static T singleInstance;
+    private static T getSingleInstance;
+}
+```
+
+
+
+#### 8.6.8、不能抛出或捕获泛型类的实例
+
+不合法写法：
+
+```java
+public class Problem<T> extends Exception{...}// ✘
+```
+
+```java
+public static <T extends Throwable> void doWork(Class<T> t){// ✘
+    try{
+        do work
+    }catch(T e){
+        ...
+    }
+}
+```
+
+注意：异常规范中使用类型变量是合法的
+
+```java
+public static <T extends Throwable> void d{
+    do work
+}catch(Throwable realCause){
+    t.iniCause(realCause);
+    throw t
+}
+```
+
+#### 8.6.9、可以取消对检查型异常的检查
+
+Java异常处理的一个基本原则是，必须为所有检查型异常提供一个处理器。不过可以用泛型取消这个机制
+
+```java
+class Task{
+    @SuppressWarings("unchecked")
+    static <T extends Throwable> void throwAs(Throwalbe t) throws T{
+        throw(T) t;
+    }
+}
+```
+
+如果有一个检查型异常e
+
+```java
+Task.<RuntiomeException>throwAs(e);
+```
+
+编译器就会认为e是一个非检查型异常，通过以下代码会把所有异常都转换为编译器所认为的非检查型异常
+
+```java
+try{
+    do work
+}catch(Throwable t){
+    Task.<RuntiomeException>throwAs(t);
+}
+```
+
+```java
+public class Test {
+    public static void main(String[] args) {
+        var thread = new Thread(Task.asRunnable(() -> {
+            Thread.sleep(1000);
+            System.out.println();
+            throw new Exception("Check this out");
+        }));
+        thread.run();
+    }
+}
+
+interface Task{
+    void run() throws Exception;
+
+    @SuppressWarnings("unchecked")
+    static <T extends Throwable> void throwAs(Throwable t) throws T{
+        throw(T) t;
+    }
+
+    static Runnable asRunnable(Task task){
+        return () -> {
+            try {
+                task.run();
+            } catch (Exception e) {
+                Task.<RuntimeException>throwAs(e);
+            }
+        };
+    }
+}
+```
+
+正常情况下，你必须捕获一个Runable的run方法中所有检查型异常，把它们“包装”到非检查型异常中，因为run方法声明为不抛出任何检查型异常。
+
+不过在这里并没有做出这种“包装”。我们只是抛出异常，并“哄骗”编译器，让它相信这不是一个检查型异常
+
+通过使用泛型类、擦除和@SuppressWarnings注解，我们就能消除Java类型系统的部分基本限制
+
+#### 8.6.10、注意擦除后的冲突
+
+当泛型类型被擦除后，不允许创建引发冲突的条件
+
+不合法写法：
+
+```java
+public class Pair<T>{// ✘
+    public boolean equals(T value){
+        return first.equals(value) && second.equals(value);
+    }
+    ...
+}
+```
+
+equals类型擦除后就会变成boolean equals(Object)，这与Object equals方法冲突
+
+解决方法很简单，就是把Pair的equals方法换个名字
+
+泛型规范说明还引用了另外一个原则：“为了支持擦除转换，我们要施加一个限制：倘若两个接口类型是同一个接口的不同参数化，一个类或类型变量就不能同时作为这两个接口类型的子类”
+
+不合法写法：
+
+```java
+class Employee implements Comparable<Employee>{...}
+class Manager extends Employee implements Comparable<Manager>{...}// ✘
+```
+
+Manager会实现Comparable\<Employee>和 Comparable\<Manager>，这是同一接口的不同参数化
+
+### 8.7、泛型类型的继承规则
+
+通常，Pair\<S>与Pair\<T>都没有任何关系 
+
+![image-20200627173638540](JAVA核心技术学习笔记.assets/image-20200627173638540.png)
+
+总是可以将参数化类型转换为一个原始类型。例如，Pair\<Employee>是一个原始类型Pair的一个子类型
+
+泛型类可以扩展或实现其他的泛型类
+
+泛型列表类型中子类型间的关系
+
+<img src="JAVA核心技术学习笔记.assets/image-20200628143548822.png" alt="image-20200628143548822" style="zoom: 67%;" />
+
+### 8.8、通配符类型
+
+#### 8.8.1、通配符概念
+
+在通配符类型中，允许类型参数变化
+
+```java
+Pair<? extends Employee>
+```
+
+表示任何泛型Pair类型，它的类型参数是Employee的子类，如：Pair\<Manager>
+
+使用通配符的子类型关系
+
+![image-20200628154502136](JAVA核心技术学习笔记.assets/image-20200628154502136.png)
+
+#### 8.8.2、通配符的超类型限定
+
+通配符限定于类型变量限定十分类似，不过，通配符还可以指定一个超类型限定
+
+```java
+class Pair<? super Manager> {
+    void setFirst(? super Manager);
+    ? super Manager getFirst();
+}
+```
+
+这个通配符限制为Manager的所有超类
+
+带有超类型限定的通配符
+
+![image-20200628154419488](JAVA核心技术学习笔记.assets/image-20200628154419488.png)
+
+直观地讲，带有超类型限定的通配符允许你写入一个泛型对象，而带有子类型限定的通配符允许你读取一个泛型对象
+
+超类型限定的另一种应用
+
+```java
+public static <T extends Comparable<? super T> T min(T[] a)>;
+```
+
+这样写可以声明为使用类型T的对象，或者也可以使用T的一个超类型的对象
+
+子类型限定用法：作为一个函数式接口的参数类型，例如Conllection接口的一个方法
+
+```java
+default boolean removeIf(Predicaate<? super E> filler)
+```
+
+这个方法会删除所有满足给定谓词条件的元素
+
+#### 8.8.3、无限定通配符
+
+可以使用根本无限定的通配符
+
+```java
+class Pair<?>{
+    ? getFirst();
+    void setFirst();
+}
+```
+
+getFirst的返回值只能赋给一个Object。serFirst方法不能被调用，甚至不能用Object调用，可以调用setFirst(null)。Pair\<?>和Pair本质的不同在于：可以用任意Object对象调用原始Pair类的setFirst方法
+
+这种写法主要用于简单判断
+
+```java
+public static boolean hasNull(Pair<?> p){
+    return p.getFirst() == null || p.getSecond() == null;
+}
+```
+
+#### 8.8.4、通配符捕获
+
+我们来写一个交换对组的元素
+
+```java
+public static void swap(Pair<?> p)
+```
+
+通配符不是类型变量，因此，不能在编写代码中使用“?”作为一种类型
+
+不合法写法
+
+```java
+？ t = p.getFirst; //✘
+p.setFirst(p.getSecond());
+p.setSecond(t);
+```
+
+替换方案
+
+```java
+public static <T> void swapHelper(Pair<T> p){
+    T t = p.getFirst();
+    p.setFirst(p.getSecond());
+    p.setSecond(t);
+}
+```
+
+### 8.9、反射和泛型
+
+#### 8.9.1、泛型Class类
+
+Class类是泛型的。例如，String.class实际上是一个Class\<String>类的对象
+
+java.lang.Class\<T>
+
+- T newInstance()：返回无参数构造器构造的一个新实例
+
+- T cast(Object obj)：如果obj为null或有可能转换成类型T，则返回obj；否则抛出一个BadCastException异常
+
+- T[] getEnumConstants()：如果T是枚举类型，则返回所有值组成的数组，否则返回null
+
+- Class<? super T> getSuperclass()：
+
+  返回这个类的超类，如果T不是一个类或Object类，则返回null
+
+- Constructor\<T> getConstructor(Class<?>... parameterTypes) 
+
+- Constructor\<T> getDeclaredConstructor(Class<?>... parameterTypes) 
+
+  获得公共构造器，或者有给定参数类型的构造器
+
+java.lang.reflect.Constructor\<T>
+
+- T newInstance(Object... parameters)：返回用指定参数构造的新实例
+
+#### 8.9.2、使用Class\<T>参数进行类型匹配
+
+```java
+public static <T> Pair<T> makePair(Class<T> c)throws InstantiationException
+    ,IllegalAccessException{
+    return new Pair<>(c.newInstance(),c.newInstance());
+}
+```
+
+当我们如下调用
+
+```java
+makePair(Employee.class)
+```
+
+Employee.class实际上是Class\<Employee>类型的对象。makePair方法的类型参数T同Employee匹配，编译器可以推断出这个方法将返回一个Pair\<Employee>
+
+#### 8.9.3、虚拟机中的泛型类型信息
+
+可以使用反射API来确定
+
+- 这个泛型方法有一个名为T的类型参数
+- 这个类型参数有一个子类型限定，其自身优势一个泛型类型
+- 这个限定类型有一个通配符参数
+- 这个通配符参数有一个超类型限定
+- 这个泛型方法有一个泛型数组参数
+
+你可以重新构造实现者声明的泛型类和方法的所有有关内容。但是，你不会知道对于特定的对象或方法调用会如何解析类型参数
+
+为了表述泛型类型的声明，可以使用java.lang.reflect包中的接口Type。这个接口包含以下子类型：
+
+- Class类，描述具体类型
+- TypeVariable接口，描述类型变量( 如：T extends Comparable\<? super T>)
+- WildcardType接口，描述通配符 (如： ？ super T)
+- ParameterizedType接口，描述泛型类或接口类型 (如：Comparable<? super T>)
+- GemericArrayType接口，描述泛型数组 (如： T[])
+
+Type接口及其子类
+
+![image-20200629153011847](JAVA核心技术学习笔记.assets/image-20200629153011847.png)
+
+####  8.9.4、类型字面量
+
+如果希望由值的类型决定程序的行为，比如：
+
+```java
+ArrayList<Integer>
+ArrayList<String>
+```
+
+我们希望这两个类型能有不同的动作，但是虚拟机进行类型擦除，使这两个类都擦除为原始类型ArrayList，解决这一问题的方案就是通过捕获Type接口的一个实例。然后构造一个匿名子类
+
+```java
+class TypeLiteral{
+    public TypeLiteral(){
+        Type parentType = getClass().getGenericSuperclass();
+        if (parentType instanceof ParameterizedType){
+            type = ((ParameterizedType) parentType).getActualTypeArguments()[0];
+        }else{
+            throw new UnsupportedOperationExcption
+                ("Construct as new TypeLiteral<...>(){}");
+        }
+    }
+}
+```
+
+
+
+java.lang.Class\<T>
+
+- TypeVariable[] getTypeParameters()：
+
+  如果这个类型被声明为泛型类型，则获得泛型类型变量，否则获得一个长度为0的数组
+
+- Type getGenericSuperclass() :
+
+  获得这个类型所声明超类的泛型类型；如果这个类型是Object或者不是类类型(class type),则返回null
+
+- Type[] getGenericInterfaces() ：
+
+  获得这个类型所声明接口的泛型类型(按照声明的次序)，否则，如果这个类型没有实现接口，则返回长度为0的数组
+
+java.lang.reflect.Method:
+
+- TypeVariable[] getTypeParameters():
+
+  如果这个方法被声明为一个泛型方法，则获得泛型类型变量，否则返回长度为0的数组
+
+- Type getGenericReturnType() :
+
+  获得这个方法声明的泛型返回类型
+
+- Type[] getGenericParameterTypes() ：
+
+  获得这个方法声明的泛型参数类型。如果这个方法没有参数，返回长度为0的数组
+
+java.lang.reflect.TypeVariable
+
+- String getName()：获得这个类型变量的名字
+- Type[] getBounds()：获得这个类型变量的子类限定，否则，如果该变量无限定，则返回长度为0的数组。
+
+java.lang.reflect.WildcardType
+
+- Type[] getUpperBounds()：
+
+  获得这个类型变量的子类型(extends)限定，否则，如果没有子类型限定，则返回长度为0的数组
+
+- Type[] getLowerBounds() 
+
+  获得这个类型变量的超类(super)限定，否则，如果没有子类型限定，则返回长度为0的数组
+
+java.lang.reflect.ParameterizedType
+
+- Type getRawType() ：获得这个参数化类型的原始类型
+
+- Type[] getActualTypeArguments() ：
+
+  获得这个参数化类型声明的类型参数
+
+- Type getOwnerType()：
+
+  如果是内部类型，则返回其内外部类类型；如果是一个顶级类型，则返回null
+
+java.lang.reflect.GenericArrayType
+
+- Type getGenericComponentType() ：
+
+  获得这个数组类型声明的泛型元素类型
+
+## 第九章、集合
+
+### 9.1、Java集合框架
+
+#### 9.1.1集合接口与实现分离
+
+与现代的数据结构类库的常见做法一样，Java集合类库也将接口与实现分离
+
+队列接口指出可以在队列的尾部添加元素，在队列的头部删除元素，并且可以查找队列中元素的个数。当需要收集对象，并按照“先进先出”方式检索对象是就应该使用队列
+
+队列通常有两种实现方式：
+
+- 循环数组
+- 链表
+
+![2342343](JAVA核心技术学习笔记.assets/2342343.jpg)
+
+循环数组效率要比链表更高效，不过循环数组是一个有界集合，即容量有限。如果程序中要收集的对象数量没有上限，就最好使用链表来实现
+
+#### 9.1.2、Collection接口
+
+集合类的基本接口是Collection接口。这个接口有两个基本方法
+
+```java
+public interfacle Collection<E>{
+    boolean add(E element);
+    Iterator<E> iterator();
+    ...
+}
+```
+
+add方法用于向集合中添加元素。如果添加元素确实改变了集合就返回true；反之则返回false
+
+iterator方法用于返回一个实现了Iterator接口的对象。可以使用这个迭代器对象依次访问集合中的元素
+
+#### 9.1.3、迭代器
+
+Iterator接口包含4个方法
+
+```java
+public interface Iterator<E> {
+    boolean hasNext();
+    E next();
+    default void remove {
+        throw new UnsupportedOperationException("remove");
+    }
+    default void forEachRemaining(Consumer<? super E> action) {
+        Objects.requireNonNull(action);
+        while (hasNext())
+            action.accept(next());
+    }
+}
+```
+
+通过反复调用next方法，可以逐个访问集合中的每个元素。但是，如果到达了集合的末尾，next方法将抛出一个NoSuchElementException。因此，需要在调用next之前调用hahNext方法。如果迭代器对象还有多个可以访问的元素，这个方法就返回true。如果想要查看集合中的所有元素，就请求一个迭代器，当hasNext返回true时就反复地调用next方法
+
+编译器简单地将“for each”循环转换为带有迭代器的循环
+
+"for each"循环可以处理任何实现了Iterable接口的对象，这个接口只包含一个抽象方法
+
+```java
+public interface Iterable<E>{
+    Iterator<E> Iterator();
+}
+```
+
+Collection接口扩展了Iteravle接口。因此，对于标准类库中的任何集合都可以使用“for each”循环。
+
+也可以调用forEachRemaining方法并提供一个lambda表达式。将对迭代器的每一个元素调用这个lambda表达式，直到再没有元素为止
+
+```java
+Iterator.forEachRemaining(element -> do somthing with element);
+```
+
+可以认为Java迭代器位于两个元素之间，当调用next时，迭代器就会越过下一个元素，并返回刚刚越过的那个元素的引用。
+
+Iterator接口的remove方法将会删除上次调用的next方法时返回的元素，如果调用remove之前没有调用next，将是不合法的
+
+#### 9.1.4、泛型实用方法
+
+java.util. Collection\<E>
+
+- Iterator\<E> iterator()：返回一个用于访问集合中各个元素的迭代器
+
+- int size()：返回当前存储在集合中的元素个数
+
+- boolean isEmpty()：如果集合中没有元素，则返回true
+
+- boolean contains(Object o)：
+
+  如果集合中包含了一个与obj相等的对象，返回true
+
+- boolean containsAll(Collection<?> c)：
+
+  如果这个集合包含other集合中的所有元素，返回true
+
+- boolean add(E element)：
+
+  将一个元素添加到集合中。如果由于这个调用改变了集合，返回true
+
+- boolean addAll(Collection<? extends E> other)：
+
+  将other集合中的所有元素添加到这个集合。如果由于这个调用改变了集合，返回true
+
+- boolean remove(Object obj) ：
+
+  从这个集合中删除等于obj的对象。如果有匹配的对象被删除。返回true
+
+- boolean removeAll(Collection<?> c) 
+
+  从这个集合中删除other集合中存在的所有元素。如果由于这个调用改变了集合，返回true
+
+- default boolean removeIf(Predicate<? super E> filter) ==8==：
+
+  从这个集合删除filter返回true的所有元素。如果由于这个调用改变了集合，返回true
+
+- void clear() ：从这个集合中删除所有的元素。
+
+- boolean retainAll(Collection<?> other)：
+
+  从这个集合中删除所有与other集合中元素不同的元素。如果由于这个调用改变了集合，返回true
+
+- Object[] toArray() ：返回这个集合中的对象的数组
+
+- \<T> T[] toArray(T[] arrayToFill)：
+
+  返回这个集合中的对象的数组。如果arrayToFill足够大，就将集合中的元素填入这个数组中。剩余空间填补null；否则，分配一个新数组，其成员类型与arrayTofiil的成员类型相同，其长度等于集合的大小，并填充集合元素
+
+java.util.Iterator\<E>
+
+- boolean hasNext() ：
+
+  如果存在另一个可访问的元素，返回true。
+
+- E next()：
+
+  返回将要访问的下一个对象。如果已经到达了集合的末尾，将抛出一个NoSuchElementException
+
+- default void remove()：
+
+  删除上次访问的对象。这个方法必须紧跟在访问一个元素之后执行。如果上次访问之后集合已经发生了变化，这个方法将抛出一个IllegalStateException
+
+- default void forEachRemaining(Consumer<? super E> action)==8==：
+
+  访问元素，并传递到指定的动作，直到在没有更多元素，或者这个动作排除一个异常
+
+### 9.2、集合框架中的接口
+
+集合框架的接口
+
+![image-20200630124913001](JAVA核心技术学习笔记.assets/image-20200630124913001.png)
+
+ 集合有两个基本接口：Conllection和Map，在集合中插入元素
+
+`boolean add(E element)`
+
+映射集合包含键/值对，所以要用put方法来插入
+
+`v put(Key,V value)`
+
+从集合读取元素，可以用迭代器访问元素，映射集合中读取值则要使用get方法
+
+`V get(K key)`
+
+List是一个有序集合，元素会增加到容器中特定位置，有两种方式访问元素：
+
+- 使用迭代器访问
+- 使用一个整数索引来访问
+
+使用整数索引来访问被称为随机访问
+
+List接口定义了多个用于随机访问的方法
+
+```java
+public interface List<E> extends Collection<E> {
+    void add(int index, E element);
+    E remove(int index);
+    E get(int index);
+    E set(int index, E element);
+}
+```
+
+ListIterator接口是Iterator的一个字接口。它定义了一个方法用于在迭代器位置前面增加一个元素
+
+```java
+void add(E element)
+```
+
+Set接口等同于Collection接口，不过其方法的行为有更严谨的定义。集(set)的add方法不允许正价重复的元素。要适当定义集的equals方法：只要两个集包含同样的元素就认为它们是相等的，而不要求这些元素有同样的顺序。hashCode方法的定义要保证包含相同元素的两个集会得到相同的散列码
+
+### 9.3、具体集合
+
+| 集合类型        | 描述                                         |
+| --------------- | -------------------------------------------- |
+| ArrayList       | 可以动态增长和缩减的一个索引序列             |
+| LinkedList      | 可以在任何位置高效插入和删除的一个有序序列   |
+| ArrayDeque      | 实现为循环数组的一个双端队列                 |
+| HashSet         | 没有重复元素的一个无序集合                   |
+| TreeSet         | 一个有序集                                   |
+| EnumSet         | 一个包含枚举类型值的集                       |
+| LinkedHashSet   | 一个可以记住元素插入次序的集                 |
+| PriorityQueue   | 允许高效删除最小元素的一个集合               |
+| HashMap         | 存储键/值关联的一个数据结构                  |
+| TreeMap         | 键有序的一个映射                             |
+| EnumMap         | 键数据枚举类型的一个映射                     |
+| LinkedHashMap   | 可以记住键/值项添加次序的一个映射            |
+| WeakHashMap     | 值不会再别处使用时就可以被垃圾回收的一个映射 |
+| IdentityHashMap | 用==而不是用equals比较键的一个映射           |
+
+![image-20200630161955483](JAVA核心技术学习笔记.assets/image-20200630161955483.png)
+
+#### 9.3.1、链表
+
+从数组中间删除一个元素开销很大，因为数组中未予被删除元素之后的所有元素都要向数组的前端移动。在数组中插入一个元素也是如此。
+
+链表不存在这样的问题，因为链表是将每个对象存放在单独的链接中。每个链接还存放着序列中下一个链接的引用。java中，所有链表实际上都是双向链接的，即每个链接还存放着器前驱的引用
+
+从链表中间删除一个元素是一个很轻松的操作，只需要更新所删除元素周围的链接即可
+
+链表是一个有序集合。LinkedList.add方法将对象添加到链表的尾部。但是，常常需要将元素添加到链表的中间。由于迭代器描述了集合中的位置，所以这种依赖于位置的add方法将有迭代器负责。只有对自然有序的集合使用迭代器添加元素才有意义
+
+集合类库提供了一个Iterator的子接口ListIterator，其中包含add方法，用于使用迭代器对有序集合添加元素
+
+```java
+interface ListIterator<E> extends Iterator<E>{
+    void add(E element);
+}
+```
+
+与Collection.add方法不同，这个方法不返回boolean类型的值，它假定add操作总会改变链表
+
+ListIterator接口有两个方法可用来反向遍历链表：
+
+```java
+interface ListIterator<E> extends Iterator<E>{
+    E previous();
+    boolean hasPrevious();
+}
+```
+
+与next方法一样，previous方法返回越过的对象。
+
+LinkedList类的listIterator方法返回一个实现了ListIterator接口的迭代器对象。
+
+```java
+LinkedIterator<String> iter = staff.listIterator();
+```
+
+add方法在迭代器位置之前添加一个新对象，如果多次调用add方法，将按照提供的次序把元素添加到链表中。它们被依次添加到迭代器当前位置之前。
+
+当用一个刚由listIterator方法返回并指向链表表头的迭代器调用add操作时，新添加的元素将变成列表的新表头。当迭代器越过链表的最后一个元素是，添加的元素将成为列表的新表尾，这就意味着可添加的位置为元素个数的n+1个位置
+
+remove始终删除的是迭代器越过的对象，具体来说调用next后，remove删除的是迭代器前的元素，调用previous后，remove删除的是迭代器后的元素
+
+set方法用一个新的元素替换调用next或previous方法返回的上一个元素
+
+如果一个迭代器发现他的集合被另一个迭代器修改了，或者被该集合自身的某个方法修改了，就会抛出一个ConcurrentModificationException异常
+
+避免发生并发修改异常的规则：可以根据需要为一个集合关联多个迭代器，前提是这些迭代器只能读取集合。或者，可以再关联一个能同时读写的迭代器
+
+集合可以跟踪更改操作的次数，每个迭代器都会为它负责的更改操作维护一个单独的更改操作数。在每个迭代器方法的开始处，迭代器都会检查它自己的更改操作数是否与集合的更改操作数相等，如果不相等则抛出ConcurrentModificationException异常
+
+链表值跟踪对列表的结构性修改，set方法不被视为结构性修改
+
+LinkedList类的get方法用来方位某个特定元素，不过这个方法效率不太高，如果频繁使用get方法，建议使用ArrayList类
+
+get方法做了一个微小的优化：如果索引大于等于size()/2，就从列表末尾开始搜索元素
+
+列表迭代器接口有两个方法提供当前迭代器位置的索引，迭代器指向的是两个元素之间的位置，nextIndex方法返回下次调用next方法所返回元素的整数索引，previousIndex方法返回下次调用previous方法所返回元素的整数索引
+
+如果有一个整数索引n， list.listInterator(n)将返回一个迭代器，这个迭代器指向索引为n的元素前面的位置
+
+java.util.Interface List\<E>
+
+- ListIterator\<E> listIterator() ：
+
+  返回一个列表迭代器，用来访问列表中的元素
+
+- ListIterator\<E> listIterator(int index)：
+
+  返回一个列表迭代器，用来访问列表中的元素，第一次调用这个迭代器的next会返回给定索引的元素
+
+- void add(int i,E element)：在给定位置添加一个元素
+
+- boolean addAll(int i, Collection<? extends E> elements) ：
+
+  将一个集合中的所有元素添加到给定位置
+
+- E remove(int i)：删除并返回给定位置的元素
+
+- E get(int i)：获取给定位置的元素
+
+- E set(int i, E element)：用一个新的元素替换给定位置的元素，并返回原来那个元素
+
+- int indexOf(Object element)：
+
+  返回与指定元素相等的元素在列表中第一次出现的位置，如果没有这样的元素将返回-1
+
+- int lastIindexOf(Object element)：
+
+  返回与指定元素相等的元素在列表中最后一次出现的位置，如果没有这样的元素将返回-1
+
+java.util.ListIterator\<E>
+
+- void add(E newElement) ：在当前位置前添加一个元素
+
+- void set(E newElement) ：
+
+  用新元素替换next或previous访问的上一个元素。如果在上一个next或previous调用之后列表被修改了，将抛出一个IllegalStateException异常
+
+- boolean hasPrevious() ：
+
+  当反向迭代列表时，如果还有可以访问的元素，返回true
+
+- E previous() ：
+
+  返回前一个对象。如果已经到达了列表的头部，就抛出一个NoSuchElementException异常
+
+- int nextIndex() ：
+
+  返回下一次调用next方法是将返回的元素的索引
+
+- int previousIndex()：
+
+  返回笑一次调用previous方法是将返回的元素的索引
+
+java.util.LinkedList\<E>
+
+- LinkedList()：构造一个空链表
+
+- LinkedList(Collection<? extends E> elements)：
+
+  构造一个链表，并将集合中所有的元素添加到这个链表中
+
+- void addFirst(E element)
+
+- void addLast(E element)：
+
+  将某个元素添加到列表的头部或尾部
+
+- E getFirst()
+
+- E getLast()：
+
+  返回列表头部或尾部的元素
+
+- E removeFirst() 
+
+- E removeLast() 
+
+  删除并返回列表头部或尾部的元素
+
+#### 9.3.2、数组列表
+
+ArrayList是Java集合类库提供的一个对象数组，这个类也实现了List接口，相比LinkedList，调用get和set方法更快，ArrayList封装了一个动态再分配的对象数组。
+
+Vector类的所有方法都是同步的
+
+#### 9.3.3、散列集
+
+散列集：散列集可以用于快速地查找对象。散列表为每个对象计算整数，称为散列码。散列码是由对象的实例字段得出的一个整数。更准确地说，有不同数据的对象将产生不同的散列码。
+
+如果定义自己的散列集类，需要实现自己的hashCode方法，hashCode方法应该与equals方法兼容，即如果a.equals(b)为true，a与b必须有相同的散列码。
+
+散列表用链表数组实现。每个列表被称为桶。要想查找表中对象的位置，就要先计算它的散列码，然后与桶的总数取余，所得到的结果就是保存这个元素的桶的索引
+
+有时候会遇到同已经被填充的情况。这种现象被称为散列冲突。这时，需要将新对象与桶中的所有对象进行比较，查看这个对象是否已经存在
+
+在java8中，桶满时会从链表变为平衡二叉树
+
+如果想更多地控制散列表的性能，可以指定一个初始的桶数。同属是指用于手机有相同散列值的桶的数目。如果要插入到散列表中的元素太多，就会增加冲突数量，降低检索性能。
+
+如果大致知道最终会有多少个元素要插入到散列表中，就可以设置桶数。通常，将桶数设置为预计元素个数的75%~150%
+
+如果散列表太满，就需要再散列。如果要对散列表再散列，就需要创建一个桶数更多的表，并将所有元素插入到这个新表中，然后丢弃原来的表。装填因子可以确定合适对散列表进行再散列。
+
+散列表可以实现集类型，集是没有重复元素的元素集合。集的add方法首先在这个这个集中查找要添加的对象，如果不存在，就添加这个对象
+
+Java集合类库提供了一个HashSet类，它实现了基于散列表的集。可以用add方法添加元素。contains方法已经被重新定义，用来快速查找某个元素是否已经在集中。它只查看一个桶中的元素，而不必查看集合中的所有元素。
+
+散列集迭代器将以此访问所有的桶。由于散列将元素分散在表中，所以会以一种看起来随机的顺序访问元素。只有不关心集合中元素的顺序时才应该使用HashSet
+
+java.util.HashSet\<E>
+
+- HashSet()：构造一个空散列集
+
+- HashSet(Collection<? extends E> elements)：
+
+  构造一个散列集，并将集合中的所有元素添加到这个散列集中
+
+- HashSet(int initialCapacity)：
+
+  构造一个空的具有指定容量(桶数)的散列集。
+
+- HashSet(int initialCapacity, float loadFactor)：
+
+  构造一个有指定容量和装填因子(0.0~1.0之间的一个数，确定散列表填充的百分比，当大于这个百分比时，散列表进行再散列)的空散列集
+
+java.lang.Object
+
+- int hashCode()：
+- 返回这个对象的散列码。散列码可以是任何整数，包括正数或负数。equals和hashCode的定义必须兼容，即如果x.equals(y)为true，x.hashCode()必须等于y.hashCode()
+
+#### 9.3.4、树集
+
+树集是一个有序集合。可以以任意顺序将元素插入到集合中。在对数据进行遍历是，值将自动地按照排序后的顺序呈现。
+
+将元素添加到树种要比添加到散列表中慢，但是与检查数组或链表中的重复元素相比，使用树会快很多
+
+树的排序必须是全序。也就是说，在任意两个元素都必须是可比的，并且只有在两个元素相等时结果才为0
+
+java.util.TreeSet\<E>
+
+- TreeSet()：构造一个空树集
+
+- TreeSet(Comparator<? super E> comparator)：
+
+  构造一个空树集，根据指定比较器进行排序
+
+- TreeSet(Collection<? extends E> elements)
+
+- TreeSet(SortedSet\<E> s)：
+
+  构造一个树集，并增加一个集合或有序集中的所有元素(对于后一种情况，要使用同样的顺序)
+
+java.util.SortedSet\<E>
+
+- Comparator<? super E> comparator() ：
+
+  返回用于对元素进行排序的比较器。如果元素用于Comparable接口的compareTo方法进行比较则返回null
+
+- E first()
+
+- E last()
+
+  返回有序集合中的最小元素或最大元素
+
+java.util.NavigableSet\<E>
+
+- E hegher(E value)
+
+- E lower(E value)
+
+  返回大于value的最小元素或小于value的最大元素，如果没有这样的元素则返回null
+
+- E ceiling(E value)
+
+- E floor(E value)
+
+   返回大于等于value的最小元素或小于等于value的最大元素，如果没有这样的元素则返回null
+
+- E pollFirst()
+
+- E pollLast()
+
+  删除并返回这个集中的最大元素或最小元素，这个集为空时返回null
+
+- Iterator\<E> descendingIterator() ：
+
+  返回一个按照递减顺序遍历集中元素的迭代器
+
+#### 9.3.5、队列与双端队列
+
+队列允许你高效地在尾部添加元素，并且在头部删除元素。双端队列(即deuqe)允许在头部和尾部都高效地添加或删除元素。不支持在队列中间添加元素。ArrayDeque和LinkedList实现了Deque接口。这两个类都可以提供双端队列，其大小可以根据需要扩展。
+
+java.util.Queue\<E>
+
+- boolean add(E element)
+
+- boolean offer(E element)
+
+  如果队列没有满，将给定的元素添加到这个队列的队尾并返回true。如果队列已满，第一个方法将抛出一个IllegalStateException，而第二个方法返回false。
+
+- E remove()
+
+- E poll()
+
+  假如队列不为空，删除并返回这个队列队头的元素。如果队列是空的，第一个方法抛出NoSuchElementException，而第二个方法返回null
+
+- E element()
+
+- E peek()
+
+  如果队列不为空，返回这个队列队头的元素，但不删除。如果队列空，第一个方法将抛出一个NoSuchElementException异常，而第二个方法返回null
+
+java.util.Deque\<E>
+
+- void addFirst(E e) 
+
+- void addLast(E e) 
+
+- boolean offerFirst(E e) 
+
+- boolean offerLast(E e) 
+
+  将给定的对象添加到双端队列的队头或队尾。如果这个双端队列已满，前面两个方法将抛出一个IllegalStateException，而后面两个方法返回false
+
+- E removeFirst() 
+
+- E removeLast() 
+
+- E pollFirst() 
+
+- E pollLast() 
+
+  如果这个双端队列不为空，删除并返回双端队列队头的元素。如果双端队列为空，前面两个方法将抛出一个NosuchElementException，而后面两个方法返回null
+
+- E getFirst() 
+
+- E getLast() 
+
+- E peekFirst() 
+
+- E peekLast() 
+
+  如果这个双端队列非空，返回双端队列队头的元素，但不删除。如果双端队列为空，前面两个方法将抛出一个NosuchElementException，而后面两个方法返回null
+
+#### 9.3.6、优先队列
+
+优先队列中的元素可以按照任意的顺序插入，但会按照有序的顺序进行检索。也就是说，无论何时调用remove方法，总会获得当前优先队列中最小的元素。优先队列并没有对所有元素进行排序
+
+优先队列使用了一个数据结构，称为堆。堆是一个可以自组织的二叉树，其添加和删除操作可以让最小元素移动到根，而不必话费时间对元素进行排序。
+
+优先队列即可以保存实现了Comparable接口的类对象，也可以保存构造器中提供的Comparator对象
+
+java.util.PriorityQueue
+
+- PriorityQueue()
+
+- PriorityQueue(int initialCapacity) 
+
+  构造一个存放Comparable对象的优先队列
+
+- PriorityQueue(int initialCapacity, Comparator<? super E> comparator) 
+
+  构造一个优先队列，并使用指定的比较器对元素进行排序
+
+### 9.4、映射
+
+当我们知道某些关键信息，希望查找预支关联的元素，就需要映射这种数据结构。映射用来存放键/值对。如果提供了键，就能够查找到值
+
+#### 9.4.1、基本映射操作
+
+Java类库为映射提供了两个通用的实现：HashMap和TreeMap。这两个类都实现了Map接口
+
+散列映射对键进行散列，树映射根据键值的顺序将元素组织为一个搜索树。散列或比较函数只应用于键。与键关联的值不进行散列或比较
+
+每当往映射中添加一个对象时，必须同时提供一个键
+
+如果映射中没有存储给定键对应的信息，get将返回null
+
+null返回值可能并不方便。有时对应没有出现在映射中的键，可以使用一个好的默认值。然后使用getOrdefault方法
+
+键必须是唯一的。不能对同一个键存放两个值。如果对同一个键调用两次put方法，第二个值就会取代第一个值，put会返回与这个键参数关联的上一个值
+
+remove方法从映射中删除给定键对应的元素。size方法返回映射中的元素数
+
+要迭代处理映射的键和值，最容易的方法是是使用forEach方法。可以提供一个接收键和值的lambda表达式。映射中的每一项会依序调用这个表达式
+
+```java
+scores.foreach((k,v) -> System.out.println("key=" +k+ "，value" +v));
+```
+
+java.util.Map<K,V>
+
+- V get(Object key)：
+
+  获取与键关联的值；返回与键关联的对象，或者如果映射中没有这个对象，则返回null。实现类可以禁止键为null
+
+- default V getOrDefault(Object key, V defaultValue) ：
+
+  获得与键关联的值；返回与键关联的对象，或者如果未在映射中找到这个键，则返回defaultValue
+
+- V put(K key,V value)：
+
+  将关联的一对键和值放到映射中。如果这个键已经存在，新的对象将取代与这个键关联的就对象。这个方法将返回键关联的旧值。如果之前没有这个键，则返回null。实现类可以禁止键或值为null
+
+- void putAll(Map<? extends K,? extends V> entries)：
+
+  将给定映射中的所有映射条目添加到这个映射中
+
+- boolean containsKey(Object key) ：如果在映射中已经有这个键，返回true
+
+- boolean containsValue(Object value) ：如果在映射中已经有这个值，返回true
+
+- default void forEach(BiConsumer<? super K,? super V> action) ==8==
+
+  对这个映射中的所有键/值对应用这个动作
+
+java.util.HashMap<K,V> 
+
+- HashMap()
+
+- HashMap(int initialCapacity)
+
+- HashMap(int initialCapacity, float loadFactor)
+
+  用给定的容量和装填因子构造一个空散列映射(装填因子是一个0.0~1.0之间的数。这个数决定散列表填充的百分比。一旦到了这个比例，就要将其再散列到更大的散列表中)。默认的装填因子是0.75
+
+java.util.TreeMap<K,V> 
+
+- TreeMap()：
+
+  为实现Comparable接口的键构造一个空的树映射
+
+- TreeMap(Comparator<? super K> c)：
+
+  构造一个树映射，并使用一个指定的比较器对键进行排序
+
+- TreeMap(Map<? extends K,? extends V> entries)：
+
+  构造一个树映射，并将某个映射中的所有映射条目添加到树映射中
+
+- TreeMap(SortedMap<K,? extends V> entries)：
+
+  构造一个树映射，将某个有序映射中的所有映射条目添加到树映射中，并使用给定的有序映射相同的比较器
+
+java.util.SortedMap<K,V>
+
+- Comparator<? super K> comparator() ：
+
+  返回对键进行排序的比较器。如果键是用Comparable接口的compateTo方法进行比较，则返回null
+
+- K firstKey() 
+
+- K lastKey()
+
+  返回映射中的最小或最大键
+
+#### 9.4.2、更新映射条目
+
+当我们想要更新映射条目，一般获取与键关联的原值，将这个值更新之后，再放回更新后的值。
+
+```java
+counts.put(word,counts.get(word)+1);
+```
+
+但是，如果我们第一次看到这个键word时，get方法会返回null，因此会出现一个NullPointerException异常
+
+解决这个问题的方法就是使用getOrDefault方法：
+
+```java
+counts.put(word,counts.getOrdefault(word,0)+1);
+```
+
+另一个方法是首先调用putIfAbsent方法。只有当键原先存在(或者映射到null)时才会放入一个值
+
+```java
+counts.putIfAbsent(word,0);
+counts.put(word,counts.get(word)+1);
+```
+
+merge方法可以简化一部分操作
+
+```java
+counts.merge(word,1,Integer::sum);
+```
+
+java.util.Map<K,V>
+
+- default V merge(K key, V value, BiFunction<? super V,? super V,? extends V> remappingFunction) ==8==：
+
+  如果key与一个非null值v关联，将函数应用到v和value，将key与结果管理那，或者如果结果为null，则删除这个键，否则，将key与value关联，返回get(key)
+
+- default V compute(K key, BiFunction<? super K,? super V,? extends V> remappingFunction) ==8==：
+
+  将函数应用到key和get(key)。将key与结果关联，或者如果结果为null，则删除这个键。返回get(key)
+
+- default V computeIfPresent(K key, BiFunction<? super K,? super V,? extends V> remappingFunction) ==8==
+
+  如果key与一个非null值v关联，将函数应用到key和v，将key与结果关联，或者如果结果为null，则删除这个键，返回get(key)
+
+- default V computeIfAbsent(K key, Function<? super K,? extends V> mappingFunction)==8==：
+
+  将这个函数应用到key，除非key与一个非null值关联。将key与结果关联，或者如果结果为null，则删除这个键。返回get(key)
+
+- default void replaceAll(BiFunction<? super K,? super V,? extends V> function)==8==
+
+  在所有映射条目上应用这个函数。将键与非null结果关联，对于null结果，则将相应的键删除
+
+- default V putIfAbsent(K key, V value)==8==：
+
+  如果key不存在或者与null关联，则将它与value关联，并返回null。否则返回关联的值
+
+#### 9.4.3、映射视图
+
+集合框架框架不认为映射本身是一个集合，所以Map接口没有继承Collection接口，但是可以得到映射的视图，视图是实现了Collection接口或某个子接口的对象。
+
+有三种视图：键集、值集合以及键/值对集
+
+```java
+Set<String> keySet();//键集
+Collection<V> values();//值集合
+Set<Map.Entry<K,V>> entrySet();//键/值对集
+```
+
+keySet不是HashSet或TreeSet，而是实现了Set接口的另外某个类的对象。Set接口扩展了Collection接口。因此可以像使用任何集合一样使用keySet
+
+例如，可以枚举一个映射的所有键：
+
+```java
+Set<String> keys = map.keySet();
+for(String key : keys){
+    do something with key;
+}
+```
+
+如果想同时查看键和值，可以通过枚举映射条目来避免查找值
+
+```java
+for(Map.Entry<String,Employee> entry : staff.entrySet()){
+    String k = entry.getKey();
+    Employee v = entry.getValue();
+    System.out.println(k);
+    System.out.println(v);
+}
+
+staff.forEach((String k,Employee v) -> {
+    System.out.println(k);
+    System.out.println(v);
+});
+```
+
+如果在链集视图上调用迭代器的remove方法，实际上会映射中删除这个键和与它关联的值。不过，不能像键集视图中添加元素，如果调用add方法，会抛出UnsupportedOperationException。映射条目集视图也不能添加元素
+
+java.util.Map<K,V>
+
+- Set<Map.Entry<K,V>> entrySet() ：
+
+  返回Map.Entry对象(映射中的键/值对)的一个集视图。可以从这个集中删除元素，它们将从映射中删除，但是不能添加任何元素。
+
+- Set\<K> keySet() ：
+
+  返回映射中所有键的一个集视图。可以从这个集中删除元素，键和相关联的值将从映射中删除，但是不能添加任何元素。
+
+- Collection\<V> values() ：
+
+  返回映射中所有值的一个集合视图。可以从这个集合中删除元素，所删除的值及相应的键将从映射中删除，但是不能添加任何元素。
+
+java.util.Map.Entry<K,V>
+
+- K getKey()
+
+- V getValue()
+
+  返回这个映射条目的键或值
+
+- V setValue(V newValue)
+
+  将相关映射中的值改为新值，并返回原来的值
+
+#### 9.4.4、弱散列映射
+
+WeakHashMap是若散列映射，当对键的唯一引用来自散列表映射条目是，这个数据结构将与垃圾回收器协同工作一起删除键/值对
+
+WeakHashMap使用弱引用WeakReference保存键。WeakReference对象将包含另一个对象的引用，在这里，就是一个散列表键。对于这种类型的对象，垃圾回收器采用一种特有的方式进行处理。正常情况下，如果垃圾回收器发现某个特定的对象已经没有他人引用了，就将其回收。然而，如果某个对象只能由WeekReference引用，垃圾回收器也会将其回收，但会将引用这个对象的弱引用放入一个队列。WeakHashMap将周期性的检查队列，以便找出新添加的弱引用。一个弱引用进入队列以为着这个键不在被他人使用，并且已经回收。于是，WeakHashMap将删除相关联的映射条目。
+
+#### 9.4.5、链接散列集与映射
+
+LinkedHashSet和LinkedMap类会记住插入元素项的顺序。这样就可以避免散列表中的项看起来顺序是随机的。在表中插入元素项时，就会并入到双向链表中
+
+链接散列映射可以使用访问顺序而不是插入顺序来迭代处理映射条目。每次调用get或put时，受到影响的项将从当前位置删除，并放到项链表的尾部(只影响项在链表中的位置，而散列表中的桶不会受影响。映射条目总是在键散列码对应的桶中)
+
+```java
+LinkedHashMap<K,V>(initialCapacity,loadFactor,true)
+```
+
+访问顺序对于实现缓存的“最近最少使用”原则十分重要。
+
+我们可以构造LinkedHashMap的一个子类，然后覆盖removeEldestEntry方法，这样就能实现将老元素删除的功能
+
+```java
+protected boolean removeEldestEntry(Map.Entry<K,V> eldest) 
+```
+
+每当这个方法返回true时，添加一个新的映射条目就会导致删除eldest项
+
+```java
+var cache = new LinkedHashMao<K,V>(128,0.75F,true){//缓存最多存放100个元素
+    protected boolean removeEldestEntry(Map.Entry<K,V> eldest) {
+        return size() > 100;
+    }
+}
+```
+
+也可以考虑eldest元素，来决定是否将它删除。
+
+#### 9.4.6、枚举集与映射
+
+EnumSet是一个枚举类型元素集的高效实现。由于枚举类型只有有限个实例，所以EnumSet内部用位序列实现。如果对应的值在集中，则相应的为被置为1.
+
+EnumSet类没有公共的构造器。要使用静态工厂方法构造这个集
+
+```java
+enum Weekday{MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY,SATURDAY,SUNDAY};
+
+EnumSet<Weekday> always = EnumSet.allOf(Weekday.class);
+EnumSet<Weekday> never = EnumSet.noneOf(Weekday.class);
+EnumSet<Weekday> workday = EnumSet.range(Weekday.MONDAY, Weekday.FRIDAY);
+EnumSet<Weekday> mvf = EnumSet.of(Weekday.MONDAY, Weekday.WEDNESDAY, Weekday.FRIDAY);
+```
+
+可以使用Set接口的常用方法来修改EnumSet。
+
+EnumMap是一个键类型为枚举类型的映射。它可以直接且高效地实现为一个值数组。需要在构造器中指定键类型
+
+```java
+var personInCharge = new EnumMap<Weekday,Employee>(Weekday.class);
+```
+
+#### 9.4.7、标识散列映射
+
+IdentityHashMap类，键的散列值使用System.identityHashCode方法计算的。这是Object.hashCode根据对象的内存地址计算散列码是所使用的的方法。IdentityHashMap类使用==，而不使用equals，也就是说不同的键对象即使内容相同，也被视为不同的对象
+
+java.util.WeakHashMap<K,V> 
+
+- WeakHashMap() 
+
+- WeakHashMap(int initialCapacity) 
+
+- WeakHashMap(int initialCapacity, float loadFactor) 
+
+  用给定的容量和填充因子构造一个空的散列映射
+
+- WeakHashMap(Map<? extends K,? extends V> m) 
+
+  构造一个新散列映射，其映射与指定映射相同
+
+java.util.LinkedHashSet\<E> 
+
+- LinkedHashSet() 
+
+- LinkedHashSet(int initialCapacity) 
+
+- LinkedHashSet(int initialCapacity, float loadFactor) 
+
+  用给定的容量和填充因子构造一个空链接散列集
+
+- LinkedHashSet(Collection<? extends E> c) 
+
+  构造一个新的链接哈希集，其具有与指定集合相同的元素。 
+
+java.util.LinkedHashMap<K,V> 
+
+- LinkedHashMap()
+
+- LinkedHashMap(int initialCapacity)
+
+- LinkedHashMap(int initialCapacity, float loadFactor) 
+
+- LinkedHashMap(int initialCapacity, float loadFactor, boolean accessOrder) 
+
+  用给定的容量、填充因子和顺序构造一个空的链接散列映射。accessOrder参数为true时表示访问顺序，为false时表示插入顺序
+
+- LinkedHashMap(Map<? extends K,? extends V> m) ：
+
+  构造一个插入有序的 LinkedHashMap实例，其实例与指定的映射相同。 
+
+
+- protected boolean removeEldestEntry(Map.Entry<K,V> eldest) 
+
+  如果想要删除eldest元素，就要覆盖为返回true。eldest参数是预期可能删除的元素。这个方法在想映射中添加一个元素之后调用。其默认实现会返回false。即在默认情况下，老元素不会被删除。不过，可以重新定义这个方法，以便有选择地返回true。例如，如果最老的元素符合一个条件，或者映射超过了一定大小，则返回true
+
+java.util.EnumSet\<E> 
+
+- static <E extends Enum\<E>> EnumSet\<E> allOf(Class\<E> elementType) 
+
+  返回一个包含给定枚举类型的所有值的可变集
+
+- static <E extends Enum\<E>> EnumSet\<E> noneOf(Class\<E> elementType) 
+
+  返回一个初始为空的可变集
+
+- static <E extends Enum\<E>> EnumSet\<E> range(E from, E to) 
+
+  返回一个包含from~to之间的所有集(包括两个边界元素)的可变集
+
+- static <E extends Enum\<E>> EnumSet\<E> of(E e) 
+
+  . . .
+
+- static <E extends Enum\<E>> EnumSet\<E> of(E e1, E e2, E e3, E e4, E e5) 
+
+- static <E extends Enum\<E>> EnumSet\<E> of(E first, E... rest) 
+
+  返回包括不为null的给定元素的可变集
+
+java.util.EnumMap<K,V> 
+
+- EnumMap<Class\<K> keyType>：
+
+  构造一个键为给定类型的空的可变映射
+
+java.util.IdentityHashMap<K,V> 
+
+- IdentityHashMap()
+
+- IdentityHashMap(int expectedMaxSize) 
+
+  构造一个空的标识散列映射集，其容量是大于1.5*expectedMaxSize的2的最小幂值(expectedMaxSize的默认值是21)
+
+java.lang.System 
+
+- static int identityHashCode(Object obj) 
+
+  返回Object.hashCode计算的相同散列码(根据对象的内存地址得出)，即使obj所属的类已经重新定义了hashCode方法
+
+### 9.5、视图与包装器
+
+使用视图可以获得其他实现了Collection接口或Map接口的对象，Map的keySet方法返回一个实现了Set接口的类对象，由这个类的方法操纵原映射。这种集合称为视图
+
+#### 9.5.1、小集合
+
+Java9引入了一些静态方法，可以生成给定元素的集或列表，以及给定键/值对的映射。
+
+```java
+List<String> names = List.of("Peter","Paul","Mary");
+Set<Integer> numbers = Set.of(2,3,5);
+```
+
+上面两个方法会分别生成包含三个元素的一个列表和一个集。对于映射，需要制定键和值
+
+```java
+Map<String,Integer> scores = Map.of("Peter",2,"Paul",3,"Mary",5);
+```
+
+元素、键或值不能为null
+
+List和Set接口有11个方法，分别有0到10个参数，另外还有一个参数个数可变的of方法。提供这种特性是为了提高效率
+
+对于Map接口，则无法提供一个参数可变的版本，因为参数类型会在键和值之间交替。不过它有一个静态方法ofEntries，能接受任意多个Map.Entry<K,V>对象
+
+```java
+Map<String,Integer> scores = ofEntries(
+entry("Peter",2),
+entry("Paul",3),
+entry("Mary",5));
+```
+
+of和ofEntries方法可以生成某些类的对象，这些类对于每个元素会有一个实例变量，或者有一个后备数组提供支持。
+
+这些集合对象是不可修改的。如果试图改变他们的内容，会导致一个UnsupportedOperationException异常
+
+如果需要一个可以更改的集合，可以把这个不可修改的集合传递到构造器
+
+```java
+var names = new ArrayList<>(List.of("Peter","Paul","Mary"));
+```
+
+Collections.nCopies(n,anObject)方法会返回一个实现了List接口的不可变的对象，给人一种错觉：就像有n个元素，每个元素都是一个anObject。这样存储开销很小，对象只存储一次
+
+#### 9.5.2、子范围
+
+子范围视图是集合的一个数据范围的视图，可以使用subList方法来获得这个列表的子范围视图，包含第一个索引，不包含最后一个(左闭右开)
+
+```java
+List<Employee> group2 = staff.subList(10,20);//第10~第19元素
+```
+
+可以对子范围应用任何操作，而且操作会自动反应到整个列表
+
+NavigableSet接口允许更多地控制这些子范围操作
+
+```java
+NavigableSet<E> subSet​(E fromElement, boolean fromInclusive, E toElement, boolean toInclusive) 
+NavigableSet<E> headSet​(E toElement, boolean inclusive) 
+NavigableSet<E> tailSet​(E fromElement, boolean inclusive) 
+```
+
+#### 9.5.3、不可修改的视图
+
+Collections类几个方法可以生成集合的不可修改视图。如果试图对集合修改，就会抛出一个UnsupportedOperationException异常
+
+下面8个方法来获得不可修改视图
+
+```java
+static <T> Collection<T> unmodifiableCollection(Collection<? extends T> c) 
+static <T> List<T> unmodifiableList(List<? extends T> list) 
+static <K,V> Map<K,V> unmodifiableMap(Map<? extends K,? extends V> m) 
+static <K,V> NavigableMap<K,V> unmodifiableNavigableMap(NavigableMap<K,? extends V> m) 
+static <T> NavigableSet<T> unmodifiableNavigableSet(NavigableSet<T> s) 
+static <T> Set<T> unmodifiableSet(Set<? extends T> s) 
+static <K,V> SortedMap<K,V> unmodifiableSortedMap(SortedMap<K,? extends V> m) 
+static <T> SortedSet<T> unmodifiableSortedSet(SortedSet<T> s) 
+```
+
+视图只是包装了接口而不是具体的集合对象，所以只能访问接口中定义的方法
+
+unmodifiableCollection方法、synchronizedCollection方法和checkedCollection方法返回的集合，它们的equals方法实现继承自Object类的equals方法。
+
+unmodifiableNavigableSet和unmodifiableList方法会使用底层集合的equals方法和hashCode方法
+
+#### 9.5.4、同步视图
+
+除了Vector和HashTable以外，所有集合类都不是线程安全的，但是可以通过视图来确保视图安全。
+
+例如，Collections类的静态synchronizedMap方法可以将任何一个映射转换成有同步访问方法的Map
+
+````java
+var map = Collections.synchronizedMap(new HashMap<String,Employee>);
+````
+
+#### 9.5.5、检查型视图
+
+“检查型”视图用来对泛型类型可能出现的错误类型的元素问题提供调试支持
+
+```java
+List<String> safeStrings = Collections.checkdList(strings,String.class);
+```
+
+这个视图的add方法将检查插入的对象是否属于给定的类。如果不属于给定的类，就会抛出一个ClassCastException异常。这样方便定位错误的位置。
+
+#### 9.5.6、关于可选操作的说明
+
+在集合和迭代器接口的API文档中，许多方法描述为“可选操作”，虽然有悖于接口的概念，但是如果试图区分开这些接口，代码量将成倍的增加，对于使用者而言，学习成本也会增加
+
+java.util.List
+
+- static \<E> List\<E> of()==9==
+
+- static \<E> List\<E> of(E e1) ==9==
+
+  . . . 
+
+- static \<E> List\<E> of(E e1, E e2, E e3, E e4, E e5, E e6, E e7, E e8, E e9, E e10)==9==
+
+- static \<E> List\<E> of(E... elements)==9==：
+
+  生成给定元素的一个不可变的列表，元素不能为null
+
+java.util.Set
+
+- static \<E> Set\<E> of()==9==
+
+- static \<E> Set\<E> of(E e1) ==9==
+
+  . . . 
+
+- static \<E> Set\<E> of(E e1, E e2, E e3, E e4, E e5, E e6, E e7, E e8, E e9, E e10)==9==
+
+- static \<E> Set\<E> of(E... elements)==9==：
+
+  生成给定元素的一个不可变的集，元素不能为null
+
+java.util.Map
+
+- static <K,V> Map<K,V> of() ==9==
+
+- static <K,V> Map<K,V> of(K k1, V v1) ==9==
+  . . .
+
+- static <K,V> Map<K,V> of(K k1, V v1, K k2, V v2, K k3, V v3, K k4, V v4, K k5, V v5, K k6, V v6, K k7, V v7, K k8, V v8, K k9, V v9, K k10, V v10)  ==9==
+
+  生成给定键和值的一个不可变的映射，键和值不能为null
+
+- static <K,V> Map.Entry<K,V> entry(K k, V v) ==9==
+
+  生成给定键和值的一个不可变的映射条目，键和值不能为null
+
+- static <K,V> Map<K,V> ofEntries(Map.Entry<? extends K,? extends V>... entries) ==9==
+
+  生成给定映射条目的一个不可变的映射
+
+java.util.Collections
+
+- static \<T> Collection\<T> unmodifiableCollection(Collection<? extends T> c)
+
+- static \<T> List\<T> unmodifiableList(List<? extends T> list) 
+
+- static <K,V> Map<K,V> unmodifiableMap(Map<? extends K,? extends V> m) 
+
+- static <K,V> NavigableMap<K,V> unmodifiableNavigableMap(NavigableMap<K,? extends V> m)==8==
+
+- static \<T> NavigableSet\<T> unmodifiableNavigableSet(NavigableSet\<T> s)==8==
+
+- static \<T> Set\<T> unmodifiableSet(Set<? extends T> s)
+
+- static <K,V> SortedMap<K,V> unmodifiableSortedMap(SortedMap<K,? extends V> m)
+
+- static \<T> SortedSet\<T> unmodifiableSortedSet(SortedSet\<T> s) 
+
+  构造一个集合视图：视图的更改器方法抛出一个UnsupportedOperationException 
+
+- static \<E> Collection\<E> checkedCollection(Collection\<E> c, Class\<E> type)
+
+- static \<E> List\<E> checkedList(List\<E> list, Class\<E> type)
+
+- static <K,V> Map<K,V> checkedMap(Map<K,V> m, Class\<K> keyType, Class\<V> valueType) 
+
+- static <K,V> NavigableMap<K,V> checkedNavigableMap(NavigableMap<K,V> m, Class\<K> keyType, Class\<V> valueType) ==8==
+
+- static \<E> NavigableSet\<E> checkedNavigableSet(NavigableSet\<E> s, Class\<E> type) ==8==
+
+- static \<E> Queue\<E> checkedQueue(Queue\<E> queue, Class\<E> type) ==8==
+
+- static \<E> Set\<E> checkedSet(Set\<E> s, Class\<E> type) 
+
+- static <K,V> SortedMap<K,V> checkedSortedMap(SortedMap<K,V> m, Class\<K> keyType, Class\<V> valueType) 
+
+- static \<E> SortedSet\<E> checkedSortedSet(SortedSet\<E> s, Class\<E> type) 
+
+  构造一个集合视图；如果插入一个错误的元素，视图的方法抛出一个ClassCastException
+
+- static \<T> List\<T> nCopies(int n, T o)：
+
+  生成一个不可变的列表，包含n个相等的值
+
+- static \<T> Set\<T> singleton(T o) 
+
+- static \<T> List\<T> singletonList(T o) 
+
+- static <K,V> Map<K,V> singletonMap(K key, V value) 
+
+  生成一个单例列表、集或映射。在Java9中，要使用相应的of方法
+
+- static \<T> Enumeration\<T> emptyEnumeration() 
+
+- static \<T> Iterator\<T> emptyIterator()
+
+- static \<T> List\<T> emptyList() 
+
+- static \<T> ListIterator\<T> emptyListIterator() 
+
+- static <K,V> Map<K,V> emptyMap() 
+
+- static <K,V> NavigableMap<K,V> emptyNavigableMap() 
+
+- static \<E> NavigableSet\<E> emptyNavigableSet() 
+
+- static \<T> Set\<T> emptySet() 
+
+- static <K,V> SortedMap<K,V> emptySortedMap() 
+
+- static \<E> SortedSet\<E> emptySortedSet() 
+
+  生成一个空集合、映射或迭代器
+
+java.util.Arrays
+
+- static \<T> List\<T> asList(T... a) 
+
+  返回一个数组中元素的列表视图。这个数组是可修改的，但其大小不可变。
+
+java.util.List\<E>
+
+- Lis\<E> subList(int fromIndex, int toIndex) 
+
+  返回给定位置范围内的所有元素的列表视图
+
+java.util.SortSet\<E>
+
+- SortedSet\<E> subSet(E fromElement, E toElement) 
+
+- SortedSet\<E> headSet(E toElement) 
+
+- SortedSet\<E> tailSet(E fromElement) 
+
+  返回给定范围内元素的视图
+
+java.util.NavigableSet\<E>
+
+- NavigableSet\<E> subSet(E fromElement, boolean fromInclusive, E toElement, boolean toInclusive) 
+
+- NavigableSet\<E> headSet(E toElement, boolean inclusive) 
+
+- NavigableSet\<E> tailSet(E fromElement, boolean inclusive) 
+
+  返回给定范围内元素的视图。boolean标志决定视图是否包含边界。
+
+java.util.SortedMap<K,V>
+
+- SortedMap<K,V> subMap(K fromKey, K toKey) 
+
+- SortedMap<K,V> headMap(K toKey) 
+
+- SortedMap<K,V> tailMap(K fromKey) 
+
+  返回键在给定范围内的映射条目的映射视图
+
+java.util.NavigableMap<K,V>
+
+- NavigableMap<K,V> subMap(K fromKey, boolean fromInclusive, K toKey, boolean toInclusive) 
+
+- NavigableMap<K,V> headMap(K toKey, boolean inclusive) 
+
+- NavigableMap<K,V> tailMap(K fromKey, boolean inclusive) 
+
+  返回键在给定范围内的映射条目的映射视图。boolean标志决定视图是否包含边界
+
+### 9.6、算法
+
+#### 9.6.1、为什么使用泛型算法
+
+泛型集合接口的优点，即算法只需要实现一次
+
+#### 9.6.2、排序与混排
+
+Collections类中的sort方法可以对实现了List接口的集合进行排序
+
+```java
+var staff = new LinkedList<String>();
+fill collection
+Collections。sort(staff);
+```
+
+这个方法假定列表元素实现了Comparable接口，如果想采用其他方式对列表进行排序，可以使用List接口的sort方法并传入一个Compaator对象
+
+```java
+staff.sort(Comparator.comparing(Employee::getSalary));
+```
+
+如果想按照降序对列表进行排序，可以使用静态的便利方法Collections.reverseOrder()。这个方法将返回一个比较器，比较器则返回b.compareTo(a)。
+
+```java
+staff.sort(Comparator.reversOrder());
+```
+
+这个方法将根据元素类型的CompateTo方法所给定的排序顺序，按逆序对列表staff中的元素进行排序。
+
+集合类库使用的是TimSort排序和归并排序，集合小于32使用TimSort排序法，大于等于32则使用归并排序，相比快速排序要慢一些，但是更稳定
+
+列表必须是可修改的，但不一定可以改变大小
+
+- 如果列表支持set方法，则是可修改的
+- 如果列表支持add和remove方法，则是可改变大小的
+
+Collections类有一个算法shuffle，其功能与排序刚好相反，它会随机地混排列表中元素的顺序
+
+```java
+ArrayList<Card> cards = ...;
+Collections.shuffle(cards);
+```
+
+java.util.Collections
+
+- static <T extends Comparable<? super T>> void sort(List\<T> list)：
+
+  使用稳定的排序算法对列表中的元素进行排序。这个算法的时间复杂度是O(n log n)，其中n为列表长度
+
+- static void shuffle(List<?> list)
+
+- static void shuffle(List<?> list, Random rnd) 
+
+  随机地打乱列表中元素的顺序。这个算法的时间复杂度是O(n a(n))，n是列表的长度，a(n)是访问元素的平均时间
+
+java.util.List\<E>
+
+- default void sort(Comparator<? super E> c) ==8==：
+
+  使用给定比较器对列表排序
+
+java.util.Comparator\<T>
+
+- static <T extends Comparable<? super T>> Comparator\<T> reverseOrder()  ==8==：
+
+  生成一个比较器，将逆置Comparable接口提供的顺序
+
+- default Comparator\<T> reversed()  ==8==：
+
+  生成一个比较器，将逆置这个比较器提供的顺序
+
+#### 9.6.3、二分查找
+
+Collections类的binarySearch方法实现了二分查找算法，使用这个方法的集合必须是有序的
+
+想要查找某个元素，必须提供集合以及要查找的元素。如果集合没有采用Comparable接口的compareTo方法进行排序，那么还要提供一个比较器对象
+
+```java
+i = Collections.binarySearch(c.element);
+i = Collections.binarySearch(c.element,comparator);
+```
+
+如果binarySearch方法返回一个非负的值，这表示匹配对象的索引，如果为负的值，则表示没有匹配的索引。可以利用返回值来计算应该将element插入到集合的哪个位置，以保持集合的有序性。插入位置是insertionPoint = -i-1
+
+只有采用随机访问，二分查找才有意义，如果为binarySearch算法提供一个链表，它将自动地退化为线性查找，因为如果二分查找使用在链表上，必须利用迭代的方式查找链表一半元素来找到中间元素
+
+java.util.Collections
+
+- static \<T> int binarySearch(List<? extends Comparable<? super T>> list, T key)
+
+- static \<T> int binarySearch(List<? extends T> list, T key, Comparator<? super T> c) 
+
+  从有序列表中搜索一个键，如果元素类型实现了RandomAccess接口，就使用二分法查找，其他情况下都使用线性查找。这个方法的时间复杂度为O(a(n) log n)，n是列表的长度，a(n)是访问一个元素的平均时间。这个方法将返回这个键在列表中的索引，如果在列表中不存在这个键将返回负值i。在这种情况下，这个键应该插入到索引-i-i的位置上，以保持列表的有序性
+
+#### 9.6.4、简单算法
+
+java.util.Collections
+
+- static <T extends Object & Comparable<? super T>> T max(Collection<? extends T> coll) 
+
+- static \<T> T max(Collection<? extends T> coll, Comparator<? super T> comp) 
+
+- static <T extends Object & Comparable<? super T>> T min(Collection<? extends T> coll)
+
+- static \<T> T min(Collection<? extends T> coll, Comparator<? super T> comp) 
+
+  返回集合中最小的或最大的元素
+
+- static \<T> void copy(List<? super T> dest, List<? extends T> src)：
+
+  将原列表中的所有元素复制到目标列表的相应位置上。目标列表的长度至少与原列表一样
+
+- static \<T> void fill(List<? super T> list, T obj)：
+
+  将列表中所有位置设置为相同的值
+
+- static \<T> boolean addAll(Collection<? super T> c, T... elements) 
+
+  将所有值添加到给定的集合中。如果集合改变了，则返回true
+
+- static \<T> boolean replaceAll(List\<T> list, T oldValue, T newValue) 
+
+  用newValue替换所有值为oldValue
+
+- static int indexOfSubList(List\<?> source, List<?> target)
+
+- static int lastIndexOfSubList(List\<?> source, List<?> target) 
+
+  返回source中第一个或最后一个等于target的子列表的索引，如果1中不存在等于target的子列表，则返回-1.例如source为[s,t,a,r]，s为[t,a,r]，两个方法都将返回索引1。
+
+- static void swap(List<?> list, int i, int j) 
+  
+  交换给定偏移位置的两个元素
+  
+- static void reverse(List<?> list) 
+
+  逆置列表中元素的顺序。例如，逆置列表[t,a,r]后将得到列表[r,a,t]。这个方法的时间复杂度为O(n)，n为列表的长度
+
+- static void rotate(List<?> list, int distance)：
+
+  旋转列表中的元素，将索引i的元素位置移动到位置(i+d)%list.size()。例如，将列表[t,a,r]旋转移2个位置后得到[a,r,t]。这个方法的时间复杂度为O(n)，n为列表的长度
+
+- static int frequency(Collection<?> c, Object o)：
+
+  返回c中的对象o相等的元素的个数
+
+- static boolean disjoint(Collection\<?> c1, Collection<?> c2) 
+
+  如果两个集合没有共同的元素，则返回true
+
+java.util.Collections\<T>
+
+- default boolean removeIf(Predicate<? super E> filter) ==8==：
+
+  删除所有匹配的元素
+
+java.util.List\<E>
+
+- default void replaceAll(UnaryOperator\<E> operator)==8==：
+
+  对这个列表的所有元素应用这个操作 
+
+#### 9.6.5、批处理
+
+```java
+coll1.removeAll(coll2);
+```
+
+coll1中删除coll2中出现的所有元素
+
+```java
+coll1.retainAll(coll2);
+```
+
+coll1中删除所有未在coll2中出现的元素
+
+#### 9.6.6、集合与数组的转换
+
+如果需要把一个数组转换为集合，List.of包装器可以达到这个目的
+
+```java
+String[] values = ...;
+var staff = new HashSet<>(List.of(values));
+```
+
+把集合转换为数组可以使用toArray方法
+
+```java
+Object[] values = staff.toArray();
+```
+
+不过，这样做只能得到一个对象数组，并且无法强制类型转换
+
+如果想要具体类型数组，可以使用toArray方法的一个变体，提供一个指定类型而且长度为0的数组。
+
+```java
+String[] value = staff.toArray(new String[0]);
+```
+
+也可以构造具体大小的数组
+
+```java
+String[] value = staff.toArray(new String[staff.size()]);
+```
+
+#### 9.6.7、编写自己的算法
+
+如果编写自己的算法，应该尽可能地使用接口，而不要使用具体的实现
+
+### 9.7、遗留的集合
+
+#### 9.7.1、Hashtable类
+
+Hashtable类与HashMap类作用一样，而且方法同步，相比同样线程同步的ConcurrentHashMap，Hashtable是全表锁，而ConcurrentHashMap是分段锁，ConcurrentHashMap效率会更高一些
+
+所以，一般情况下，不需要并发用HashMap，需要并发用ConcurrentHashMap
+
+#### 9.7.2、枚举
+
+Enumeration接口可以用来遍历元素序列，这个接口有两个方法hasMoreElements和nextElements，这两个方法完全类似于Iterator接口的hasNext方法和next方法
+
+如果发现遗留的类实现了这个接口，可以使用Collections.list将元素收集到一个ArrayList中
+
+```java
+ArrayList<String> loggerNames = Collections.list(LogManager.getLoggerNames());
+```
+
+在Java9中，可以把一个枚举转换为一个迭代器
+
+```java
+LogManager.getLoggerNames().asIterator().forEachRemaining(n -> {. . .});
+```
+
+如果遗留的方法希望得到枚举参数。静态方法Collections.enumeration将产生一个枚举对象，枚举集合中的元素
+
+```java
+List<InputStream> streams = . . .;
+var in = new SequenceInputStream(Collections.enumeration(streams));
+```
+
+java.util.Enumeration\<E>
+
+- boolean hasMoreElements()：
+
+  如果还有更多的元素可以查看，则返回true
+
+- E nextElement()：
+
+  返回要检测的下一个元素。如果hasMoreElements()返回false，则不要调用这个方法
+
+- default Iterator\<E> asIterator()==9==：
+
+  生成一个迭代器，可以迭代处理枚举的元素 
+
+java.util.Collections
+
+- static \<T> Enumeration\<T> enumeration(Collection\<T> c)：
+
+  返回一个枚举，可以枚举c的元素
+
+- static \<T> ArrayList\<T> list(Enumeration\<T> e)：
+
+  返回一个数组列表，其中包含e枚举的元素
+
+#### 9.7.3、属性映射
+
+属性映射是一个特殊类型的映射结构。有3个特性：
+
+- 键与值都是字符串
+- 这个映射可以很容易地保存到文件以及文件加载
+- 有一个二级表存放默认值
+
+实现属性映射的类为Properties
+
+```java
+var settings = new Properties();
+settings.setProperty("width","600.0");
+```
+
+可以使用store方法将属性映射列表保存到一个文件中
+
+```java
+var out = new FileOutputStream("program.properties");
+settings.store(out,"Program Properties")
+```
+
+从文件加载属性
+
+```java
+var in = new FileInputStream("program.properties");
+settings.load(in);
+```
+
+System.getProperties方法会生成Properties对象描述系统信息
+
+```java
+String userDir = System.getProperty("user.home");//获取jre目录
+```
+
+Properties类实际上继承自Hashtable<Object,Object>，也就是说实现了Map<Object,Object>接口，因此可以使用Map接口的get和put方法，而get返回返回是Object类型，put可以放入任意对象，所以我们最好使用get和put，而不使用封装过的getProperty和setProperty
+
+Properties提供默认值有两种方法
+
+第一个方法，查找一个字符串的值，可以指定一个默认值
+
+```java
+String filename = settings.getProperty("filename","");
+```
+
+第二个方法，可以把所有默认值都放在一个耳机属性映射中，并在主属性映射的构造器中提供这个二级映射
+
+```java
+var defaultSettings = new Properties();
+defaultSettings.setProperty("width","600");
+defaultSettings.setProperty("height","400");
+defaultSettings.setProperty("filename","");
+...
+var settings = new Properties(defaultSettings);
+```
+
+在java9之前，属性文件使用7位ASCII编码，如今则使用UTF-8
+
+java.util.Properties 
+
+- Properties()：创建一个空属性映射
+
+- Properties(Properties defaults)：
+
+  用一组默认值创建一个空属性映射
+
+- String getProperty(String key)：
+
+  获得一个属性。返回与键(key)关联的值，或者如果这个键未在表中出现，则返回默认值表中与这个键关联的值，或者如果键在默认值表中也未出现，则返回null
+
+- String getProperty(String key, String defaultValue) ：
+
+  如果键未找到，获得有默认值的属性，返回与键关联的字符串，或者如果键在表中为出现，则返回默认字符串
+
+- Object setProperty(String key, String value)：
+
+  设置一个属性。返回给定键之前设置的值
+
+- void load(InputStream inStream) 
+
+  从一个输入流加载一个属性映射
+
+- void store(OutputStream out, String header)：
+
+  将一个属性映射保存到一个输出流。header是所存储文件的第一行 
+
+java.lang.System
+
+- static Properties getProperties()：
+
+  获取所有系统属性。应用必须有权限获取所有属性，否则会抛出一个安全异常
+
+- static String getProperty(String key)：
+
+  获取给定键名对应的系统属性。应用必须有权限获取这个属性，否则会抛出一个安全异常。以下属性总是允许获取：
+
+  java.version:java运行时版本
+  java.vendor:java运行时环境供应商
+  java.vendor.url:java供应商url
+  java.home;java安装目录
+  java.class.path:java类路径
+  java.library.path:加载库是搜索的路径列表
+  java.class.version:java类格式版本
+  os.name:操作系统的名称
+  os.arch:操作系统的架构
+  os.version:操作系统的版本
+  file.separator:文件分隔符（在unix系统中是“/”）
+  path.separator:路径分隔符（在unix系统中是“:”）
+  line.separator:行分隔符（在unix系统中是“/n”）
+  java.io.tmpdir:默认的临时文件路径
+  user.name:用户的账户名称
+  user.home:用户的主目录
+  user.dir:用户的当前工作目录
+  java.compiler:要使用的JIT编译器的路径
+  java.specification.version:java运行时环境规范版本
+  java.specification.vendor:java运行时环境规范运营商
+  java.specification.name:java运行时环境规范名称
+  java.vm.version:java虚拟机实现版本
+  java.vm.vendor:java虚拟机实现供应商
+  java.vm.name:java虚拟机实现名称
+
+#### 9.7.4、栈
+
+Stack类包含push方法和pop方法，Stack类扩展了Vector类
+
+#### 9.7.5、位集
+
+BitSet类用于高效地存储位序列。
+
+获取第i位，如果返回true则是“开”状态，否则返回false
+
+````java
+bucketOfBits.get(i);
+````
+
+将第i位置为“开”状态
+
+```java
+bucketOfBits.set(i);
+```
+
+将第i位置为“关”状态
+
+```java
+bucketOfBits.clear(i);
+```
+
+java.util.BitSet 
+
+- BitSet(int initialCapacity)
+
+  创建一个位集
+
+- int length() 
+
+  返回位集的“逻辑长度”，即1加上位集的最高位的索引
+
+- boolean get(int bitIndex) 
+
+  获得一个位
+
+- void set(int bitIndex) 
+
+  设置一个位
+
+- void clear() 
+
+  清除一个位
+
+- void and(BitSet set) 
+
+  这个位集与另一个位集进行逻辑“与”
+
+- void or(BitSet set) 
+
+  这个位集与另一个位集进行逻辑“或”
+
+- void xor(BitSet set) 
+
+  这个位集与另一个位集进行逻辑“异或”
+
+- void andNot(BitSet set) 
+
+  对应另一个位集中设置为1的所有为。将这个位集中相应的位清除为0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
