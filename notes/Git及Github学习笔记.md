@@ -1,6 +1,6 @@
 # Git及Github学习笔记
 
-> 学习自[Git使用教程](https://www.imooc.com/article/20411)
+> 学习自[Git使用教程](https://www.imooc.com/article/20411)及官方学习手册
 
 ## 一、Git是什么
 分布式版本控制系统

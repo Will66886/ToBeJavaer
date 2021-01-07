@@ -40,15 +40,9 @@ GitHub : https://github.com/spring-projects
 - 控制反转（IOC）,面向切面编程（AOP）
 - 支持事务的处理，对框架整合的支持
 
-总结一句话：Spring就是一个轻量级的控制反转(IOC
-
-)和面向切面编程{AOP}的框架
-
-
+总结一句话：Spring就是一个轻量级的控制反转(IOC)和面向切面编程{AOP}的框架
 
 弊端：发展了太久之后，违背了原来的理念，配置十分繁琐，人称配置地狱
-
-
 
 ### 1.2、组成
 
@@ -290,7 +284,7 @@ Spring容器在初始化时先读取配置文件，根据配置文件或元数�
        public static void main(String[] args) {
            //获取Spring上下文对象
            ApplicationContext context = new ClassPathXmlApplicationContext("beans.xml");
-           Hello hello = (Hello) context.getBean("hello");
+           Hello hello = (Hello) context.getBean("hello");//如果此处类不对会提示ClassCastException异常
            System.out.println(hello);
        }
    }
@@ -422,12 +416,11 @@ IOC是一种编程思想，由主动的编程变成被动的接收
 - id：bean的唯一标识符，相当于对象名
 - class：bean对象所对应的全限定名：包名 + 类型
 - name：也是别名（可以用空格，逗号，分号分割）
+- depengs-on：暂定当前bean实例化，优先实例化设置的bean
 
 ```xml
 <bean id="userT" class="com.shary.pojo.UserT" name="userT2,userT3 userT4;userT5"/>
 ```
-
-
 
 ### 5.3、Import
 
@@ -1013,7 +1006,6 @@ public class MyTest {
    }
    ```
 
-   
 
 代理模式的好处：
 

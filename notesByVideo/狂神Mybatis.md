@@ -1349,7 +1349,7 @@ CREATE TABLE `blog` (
 
 
 
-### IF
+### if
 
 ```xml
 <select id="queryBlogIF" parameterType="map" resultType="blog">

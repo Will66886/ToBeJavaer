@@ -250,7 +250,7 @@ DispatcherServlet的作用是将请求分发到不同的处理器。从Spring 2.
 
 ### 2.4、SpringMVC执行原理
 
-![image-20200517112949995](狂神SpringMVC.assets/image-20200517112949995.png)
+![image-20201231093552674](狂神SpringMVC.assets/image-20201231093552674.png)
 
 #### 简要分析执行流程
 
