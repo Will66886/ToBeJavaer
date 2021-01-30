@@ -6365,17 +6365,416 @@ java.util.concurrent.FutureTask\<V>
 
   构造一个既是Future\<V>又是Runnable的对象
 
+#### 12.6.2、执行器
 
+执行器(Executors)类有许多静态工厂方法，用来构造线程池
 
+| 方法                            | 描述                                                         |
+| ------------------------------- | ------------------------------------------------------------ |
+| newCachedThreadPool             | 必要时创建新线程；空闲线程会保持60秒                         |
+| newFixedThreadPool              | 池中包含固定数目的线程；空闲线程会一直保留                   |
+| newWorkStealingPool             | 一种适合“fork-join”任务的线程池，其中复杂的任务会分解为更简单的任务，空闲线程会“密取”较简单的任务 |
+| newSingleThreadExcutor          | 只有一个线程的“池”，会顺序的执行所提交的任务                 |
+| newScheduledThreadPool          | 用于调动执行的固定线程池                                     |
+| newSingleThreadScheduledExcutor | 用于调动执行的单线程“池”                                     |
 
+可以用下面的方式之一将Runnable或Callable对象提交给ExecutorService：
 
+- Future\<T>  submit(Callable\<T> task)
+- Future\<?> submit(Runnable task)
+- Future\<T> submit(Runnable task,T result) 
 
+线程池会在方便的时候尽早执行提交的任务，使用完一个线程池时，调用shutdown。这个方法启动线程池关闭序列。被关闭的执行器不再接收新的任务。当所有任务都完成时，线程池中的线程会死亡。另一种方法是调用shutdownNow。线程池会取消所有尚未开始的任务。
 
+线程池使用流程：
 
+1. 调用Executors类的静态方法newCachedThreadPool或newFixedThreadPool
+2. 调用submit提交Runnable或Callable对象
+3. 保存好返回的Future对象，以便得到结果或取消任务
+4. 当不想再提交任何任务时，调用shutdown
 
+ScheduledExecutorService接口为调度执行或重复执行任务提供了一些方法。这是对建立线程池的java.util.Timer的泛化。
 
+java.util.concurrent.Executors
 
+- ExecutorService newCachedThreadPool()：
 
+  返回一个缓存线程池，会在必要的时候创建线程，如果线程已经空闲60秒则终止该线程
+
+- ExecutorService newFixedThreadPool(int threads)：
+
+  返回一个线程池，使用给定数目的线程执行任务
+
+- ExecutorService newSingleThreadExecutor()：
+
+  返回一个执行器，它在一个单独的线程中顺序地执行任务
+
+- ScheduledExecutorService newScheduledThreadPool(int threads)：
+
+  返回一个线程池，使用给定数目的线程调度任务
+
+- ScheduledExecutorService newSingleThreadScheduledExecutor()：
+
+  返回一个执行器，在一个单独的线程中调度任务
+
+java.util.concurrent.ExecutorService
+
+- Function\<T> submit(Callable\<T> task)
+
+- Function\<T> submit(Runnable\<T> task，T result)
+
+- Function\<T> submit(Runnable\<T> task)
+
+  提交指定的任务来执行
+
+- void shutdown()
+
+  关闭服务，完成已经提交的任务但不再接受新的任务
+
+java.util.concurrent.ThreadPoolExecutorCollector
+
+- int getLargestPoolSize()：
+
+  返回该执行器生命周期中线程池的最大大小
+
+java.util.concurent.ScheduledExecutorService
+
+- ScheduledFuture\<V> schedule(Callable\<V> task, long time, TimeUnit unit)
+
+- ScheduledFuture\<?> schedule(Runnable task, long time, TimeUnit unit)
+
+  调度在指定的时间之后执行任务
+
+- ScheduleFuture\<?> scheduleAtFixedDelay(Runnable task, long initialDelay, long period, TimeUnit unit)
+
+  调度在初始延迟之后，周期性地运行给定的任务，周期长度是period个单位
+
+- ScheduleFuture\<?> scheduleWhitFixedDelay(Runnable task, long initialDelay, long delay, TimeUnit unit)
+
+  调度在初始延迟之后，周期性地运行给定的任务，在一次调用完成和下一次调用开始之间有长度为delay个单位的延迟
+
+#### 12.6.3、控制任务组
+
+执行器可以控制一组相关的任务
+
+shutdownNow方法可以取消所有任务
+
+invokeAny方法提交一个Callable对象集合中的所有对象，并返回某个已完成任务的结果。我们不知道返回的究竟是哪一个任务的结果，这往往是最快完成的那个任务。对于搜索问题，如果我们愿意接受任何一种答案，就可以使用这个方法。
+
+invokeAll方法提交一个Callable对象的集合中所有对象，这个方法会阻塞，直到所有任务都完成，并返回所有任务答案的一个Future对象列表。得到计算结果后，还可以像下面这样对结果进行处理
+
+```java
+List<Callable<T>> tasks = ...;
+List<Future<T>> results = executor.invokeAll(task);
+for(Future<T> result : results){
+    processFurther(result.get());
+}
+```
+
+在for循环中，第一个result.get()调用会阻塞，直到第一个结果可用，如果所有任务几乎同时完成，这不会有问题。不过有必要按计算出的结果的顺序得到这些结果。可以利用ExecutorCompletionService来管理。
+
+首先以通常的方式得到一个执行器。然后构造一个ExecutorCompletionService。将任务提交到这个完成服务。该服务会管理Future对象的一个阻塞队列。其中包含所提交任务的结果(一旦结果可用，就会放入队列)。因此，要完成之前的计算，以下组织更为高效：
+
+```java
+var service = new ExecutorCompletionService<T>(executor);
+for(Callable<T> task : tasks){
+    service.submit(task);
+}
+for(int i = 0; i < tasks.size(); i++){
+    processFurther(service.take().get());
+}
+```
+
+#### 12.6.4、fork-join框架
+
+fork-join框架是专门用来支持对每个处理器内核分别使用一个线程，以完成计算密集型任务
+
+假设有一个处理任务，它可以很自然地分解为子任务
+
+```java
+if(problemSize < threshold)
+    solve problem directly
+else{
+    break problem into subproblems
+    recursively solve each subproblem
+    combine the results
+}
+```
+
+要采用框架可用的一种方式完成这种递归计算，需要提供一个扩展RecursiveTask\<T>的类(如果计算会生成一个类型为T的结果)或者提供一个扩展RecursiveAction的类(如果不生成任何结果)。再覆盖compute方法来生成并调用子任务，然后合并其结果。
+
+fork-join框架用工作密取(work stealing)来平衡可用线程的工作负载。每个工作线程都有一个双端队列来完成任务。一个工作线程空闲时，它会从另一个双端队列的队尾"密取"一个任务。由于大的子任务都在队尾，这种密取很少出现
+
+注意：fork-join池是针对非阻塞工作负载优化的。如果向一个fork-join池增加很多阻塞任务，会让它无法有效工作。可以让任务实现ForkJoinPool.ManagedBlocker接口来解决这个问题
+
+### 12.7、异步计算
+
+#### 12.7.1、可完成Future
+
+CompletableFuture类实现了Future接口，它提供了获得结果的另一种机制。你要注册一个回调，一旦结果可用，就会(在某个线程中)利用该结果调用这个回调。
+
+```java
+CompetitionFuture\<String> f = ...;
+f.thenAccept(s -> Process the result string s);
+```
+
+通过这种方式，无须阻塞就可以在结果可用时对结果进行处理。
+
+有些API方法会返回CompletableFuture对象，不过，大多数情况下，都需要建立自己的CompletableFuture。要想异步运行任务并得到CompletableFuture，不要把它直接提交给执行器服务，而应当调用静态方法CompletableFuture.supplyAsync。
+
+如果省略执行器，任务会在一个默认执行器(具体就是ForkJoinPool.commonPool()返回的执行器)上运行。通常你可能并不希望这么做。
+
+CompletableFuture可以采用两种方式完成：得到一个结果，或者有一个未捕获的异常。要处理这两种情况，可以使用whenComplete方法。要对结果(或者如果没有就为null)和异常(或者如果没有就为null)调用所提供的函数
+
+```java
+f.whenComplete((s,t) -> {
+	if(t == null){
+        Process the result s;
+    }else{
+        Process the Throwable t;
+    }    
+});
+```
+
+CompletableFuture之所以被称为是可完成的，是因为你可以手动地设置一个完成值(在其他并发库中，这样的对象称为承诺(promise))。当然，用supplyAsync创建一个CompletableFuture时，任务完成时就会隐式第设置完成值。不过，显式地设置结果可以提供更大的灵活性。
+
+注释：可以在多个线程中在同一个future上安全地调用complete或completeExceptionnally。如果这个future已经完成，这些调用没有任何作用
+
+isDone方法指出一个Future对象是否已经完成(正常完成或产生一个异常)。如果结果已经由另一个方法得出，workHard和workSmart方法可以使用这个信息停止工作。
+
+警告：与普通的Future不同，调用cancel方法时，CompletableFuture的计算不会中断。取消只会把这个Future对象设置为以异常方式完成(有一个CancallationException异常)。一般来讲，这是有道理的，因为CompletableFuture可能没有一个线程负责它的完成。不过这个限制也适用于supplyAsync等方法返回的CompletableFuture实例，而这些对象原则上讲是可以中断的
+
+#### 12.7.2、组合可完成Future
+
+CompletableFuture类可以将异步任务组合为一个处理管线。
+
+```java
+public CompletableFuture<String> readPage(URL url){...}
+public List<URL> getImageURLs(String webPage){...}
+CompletableFuture<String> contents = readPage(url);
+CompletableFuture<List<URL>> imageURLs = contents.thenApply(this::getImageURLs);
+```
+
+thenApply方法不会阻塞。它会返回另一个future。第一个future完成时，其结果会提供给getImageURLs方法，这个方法的返回值就是最终的结果。
+
+下表是为CompletableFuture\<T>对象增加一个动作值的方法，这里所示的每一个方法，还有相应的两个Async形式，不过这里没有给出，其中一种形式使用一个共享**ForkJoinPool**，另一种形式有一个**Executor**参数。
+
+| 方法              | 参数                       | 描述                                   |
+| ----------------- | -------------------------- | -------------------------------------- |
+| thenApply         | T -> U                     | 对结果应用一个函数                     |
+| thenAccept        | T -> void                  | 类似于thenApply，不过结果为void        |
+| thenCompse        | T -> CompletableFuture\<U> | 对结果调用函数并执行返回的future       |
+| handle            | (T, Throwable) -> U        | 处理结果或错误，生成一个新结果         |
+| whenComplete      | (T, Throwable) -> void     | 类似于handle。，不过结果为void         |
+| exceptionally     | Throwable -> T             | 从错误计算一个结果                     |
+| completeOnTimeout | T, long, TimeUnit          | 如果超时，生成给定值作为结果           |
+| orTimeout         | long, TimeUnit             | 如果超时，生成一个TimeoutException异常 |
+| thenRun           | Runnable                   | 执行Runnable，结果为void               |
+
+如上面的thenApply方法。假设f是一个函数，接收类型为T的值，并返回类型为U的值。
+
+```java
+ CompletableFuture<U> future.thenApply(f);
+ CompletableFuture<U> future.thenApplyAsync(f);
+```
+
+它会返回一个future，结果可用湿，会对future的结果应用f。第二个调用会在另一个线程中运行f
+
+thenCompose方法没有取将T映射到U的函数，而是接收一个将T映射到 CompletableFuture\<U>的函数
+
+处理异常的方法有以下三种：
+
+- whenComplete
+
+- handle：可以传给它一个函数来处理结果或异常，并计算一个新结果
+
+- exceptionally：出现一个异常时，这个方法会计算一个假值
+
+  ```java
+  CompletableFuture<List<URL>> imageURLs = readPage(url)
+      .exceptionally(ex -> "<html></html>")
+      .thenApply(this::getImageURLs)
+  ```
+
+  也可以处理超时
+
+  ```java
+  CompletableFuture<List<URL>> imageURLs = readPage(url)
+      .exceptionally("<html></html>", 30, TimeUnit.SECONDS)
+      .thenApply(this::getImageURLs)
+  ```
+
+  或者，也可以在超时的时候抛出一个异常
+
+  ```java
+  CompletableFuture<List<URL>> imageURLs = readPage(url).orTimeout(30, TimeUnit.SECONDS)
+  ```
+
+下图为组合多个future对象的方法
+
+| 方法           | 参数                                  | 描述                                     |
+| -------------- | ------------------------------------- | ---------------------------------------- |
+| thenCombine    | CompletableFuture\<U>, (T, U) -> V    | 执行两个动作并给定函数组合结果           |
+| thenAcceptBoth | CompletableFuture\<U>, (T, U) -> void | 与thenCombine类似，不过结果为void        |
+| runAfterBoth   | CompletableFuture\<?>, Runnable       | 两个都完成后执行runnable                 |
+| applyToEither  | CompletableFuture\<T>, T -> V         | 得到其中一个的结果时，传入给定的函数     |
+| acceptEither   | CompletableFuture\<T>, T -> void      | 与applyToEither类似，不过结果为void      |
+| runAfterEither | CompletableFuture\<?> Runnable        | 其中一个完成后执行runnable               |
+| static allOf   | CompletableFuture<?>...               | 所有给定的future都完成后完成，结果为void |
+| static anyOf   | CompletableFuture\<?>...              | 任意给定的future完成后则完成，结果为void |
+
+### 12.8、进程
+
+可以使用ProcessBuilder和Process类去执行多个程序。Process类在一个单独的操作系统进程中执行一个命令，允许我们与标准输入、输出和错误流交互。ProcessBuilder类则允许我们配置Process对象。
+
+ProcessBuilder类可以取代Runtime.exec调用，而且更为灵活
+
+#### 12.8.1、建立一个线程
+
+首先指定你想执行的命令。可以提供一个List\<String>，或者直接体用命令字符串。
+
+```java
+var builder = new ProcessBuilder("gcc","myapp.c");
+```
+
+警告：第一个字符串必须是一个可执行的命令，而不是一个shell内置命令。例如，要在Windows中运行dir命令，就需要提供字符串"cmd.exe""/C"和"dir"来建立进程
+
+每个进程都有一个工作目录，用来解析相对目录名。默认情况下，进程的工作目录与虚拟机相同，通常是启动java程序的那个目录。可以用directory方法改变工作目录：
+
+```java
+builder = builder.directory(path.toFile());
+```
+
+处理进程的标准输入、输出和错误流
+
+```java
+OutputStream processIn = p.getOutputStream();
+InputStream processOut = p.getInputStream();
+InputStream processError = p.getErrorStream();
+```
+
+注意，进程的输入流是JVM的一个输出流。我们会写入一个流，而我们写的内容会成为进程的输入。与之相反，我们会读取进程写入输出的错误流的内容。对我们来说，它们都是输入流。
+
+可以指定新进程的输入、输出和错误流与JVM相同。如果用户在一个控制台运行JVM，所有用户输入都会转发到进程，而进程的输出将显示在控制台上。可以调用IO方法
+
+为这3个流建立这个设置，如果你只想继承某些流，可以把值传入到redirectInput、redirectOutput或redirectError方法
+
+```java
+builder.redirectInput(ProcessBuilder.Redirect.INHERIT);
+```
+
+通过提供File对象，可以将进程流重定向到文件。
+
+```java
+builder.redirectInput(inputFile).redirectOutput(outputFile).redirectError(errorFile);
+```
+
+进程启动时，会创建或删除输出和错误文件。要追加到现有的文件，可以使用：
+
+```java
+builder.redirectOutput(ProcessBuilder.Redirect.appendTo(outputFile));
+```
+
+合并输出和错误流通常很有用，这样就能按进程生成这些消息和顺序显示输出和错误消息。
+
+```java
+builder.redirectErrorStream(true);
+```
+
+但是合并输出和错误流后，就不能再在ProcessBuilder上调用redirectError，也不能在Process调用getErrorStream。
+
+如果想要修改进程的环境变量，构建器的串链语法就不能用了。需要得到构建器的环境(由运行JVM的那个进程的环境变量初始化)，然后加入或删除环境变量条目。
+
+```java
+Map<String, String> env = builder.environment();
+env.put("LANG","fr_FR");
+env.remove("JAVA_HOME");
+Process p = builder.start();
+```
+
+如果希望利用管道将一个进程的输出作为另一个进程的输入(类似于Shell中的 | 操作符)，Java 9 提供了一个startPipeline方法。可以传入一个进程构建器列表，并从最后一个进程读取结果
+
+```java
+List<Process> processes = ProcessBuilder.startPipeline(
+    List.of(new ProcessBuilder("find", "opt/jdk-9"),
+            new ProcessBuilder("grep","-o","\\.[^./]*$"),
+            new ProcessBuilder("sort"),
+            new ProcessBuilder("uniq")
+           ));
+Process last = processes.get(processes.size() - 1);
+String result = new String(last.getInputStream().readAllBytes());
+```
+
+#### 12.8.2、运行一个进程
+
+配置了构建器之后，要调用它的start方法启动进程。
+
+```java
+Process p = new ProcessBuilder("gcc", "myapp.c").start();
+```
+
+警告：进程流的缓冲空间有限。不能写入太多输入，而且要及时读取输出。如果有大量输入和输出，可能要在单独的线程中生产和消费这些输入和输出。
+
+要等待进程完成，可以调用：
+
+```java
+int result = process.waitFor();
+```
+
+如果不想无限期等待
+
+```java
+int delay = ...;
+if (process.waitFor(delay, TimeUnit.SECONDS)){
+    int result = process.exitValue();
+    ...
+}else {
+    process.destroyForcibly();
+}
+```
+
+第一个waitFor调用返回过程的退出值(0表示成功，非0为错误码)。如果进程没有超时，第二个调用返回true。然后需要调用exitValue方法获取退出值
+
+不时调用isAlive来查看进程是否仍然存活。可以调用destory或destoryForcibly杀死这个进程，这两个调用之间的区别取决于平台。UNIX上，前者回以SIGTEAM终止进程，后者回以SIGKILL终止进程。(如果destory方法可以正常终止进程，supportsNormalTermination方法将返回true。)
+
+最后会在进程完成时接收到一个异步通知。onExit方法会得到一个CompletableFuture\<Process>，可以用来调用任何动作
+
+```java
+CompletableFuture<Void> future = process.onExit().thenAccept(p -> System.out.println("Exit value: " + p.exitValue()));
+```
+
+#### 12.8.3、进程句柄
+
+要获得程序启动的一个进程的更多信息，或者逍遥更多地了解你的计算机上正在运行的任何其他进程，可以使用ProcessHandler接口，有四种方式得到它：
+
+1. 给定一个Process对象p，p.toHandle()会生成它的ProcessHandler。
+2. 给定一个long类型的操作系统进程ID，ProcessHandle.of(id)可以生成这个进程的句柄。
+3. Process.current()是运行这个Java虚拟机的进程的句柄。
+4. ProcessHandle.allProcesses()可以生成对当前进程可见的所有操作系统进程的Stream\<ProcessHandle>
+
+给定一个进程句柄，可以得到它的进程ID、父进程、子进程和后代进程：
+
+```java
+long pid = handle.pid();
+Optional<ProcessHandle> parent = handle.parent();
+Stream<ProcessHandle> children = handle.children();
+Stream<ProcessHandle> descendants = handle.descendants();
+```
+
+info方法可以生成一个ProcessHandle.Info对象，它体统了一些方法来获得进程的有关信息。
+
+```java
+Optional<String[]> arguments()
+Optional<String> command()
+Optional<String> commandLine()
+Optional<String> startInstant()
+Optional<String> totalCpuDuration()
+Optional<String> user()
+```
+
+所有这些方法都返回Optional值，因为可能某个特定的操作系统不能报告这个信息。
+
+要监视或强制进程终止，与Process类一样，ProcessHandle接口也有isAlive、supportsNormalTermintion、destroy、destroyForcibly和onExit方法。不过，没有对应waitFor的方法。
 
 
 
