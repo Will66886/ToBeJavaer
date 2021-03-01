@@ -136,6 +136,8 @@ axios({
 
 ### 6.1、vue-rounter配置文件
 
+npm install vue-router --save-dev
+
 首先创建vue-router配置文件router/index.js
 
 在主入口配置
@@ -283,6 +285,8 @@ v-bind:to可以作用于对象，从而将参数传递给router.push
 如上面的userId，可以通过{{$route.params.userId}}获取
 
 ## 七、ElementUI
+
+cnpm install sass-loader node-sass --save-dev
 
 创建ElementUI配置文件
 

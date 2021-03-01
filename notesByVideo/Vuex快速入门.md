@@ -2,6 +2,8 @@
 
 https://www.bilibili.com/video/BV1dp4y1S7G6
 
+Vuex是vue的一种状态管理模式
+
 ## 1、state
 
 在state中定义数据，在组件中直接使用

@@ -5885,8 +5885,6 @@ synchronized与Lock对比
   2. 获得锁后会继续执行
   3. 如果没有获得锁但是线程被中断(interrupt)，会抛出InterruptedException异常
 
-  
-
 - Lock支持非阻塞的获取锁
 
 - Lock+Condition可以支持多个条件
