@@ -29,15 +29,11 @@
 - EE: 企业版
 - ME: 微型版
 
-
-
 ###### :star2:**环境变量配置**
 
 JAVA_HOME c:Java\jdk-11.0.2
 
 Path后面加%JAVA_HOME%\bin;
-
-
 
 ######  命令行
 

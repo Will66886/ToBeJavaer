@@ -342,8 +342,6 @@ namespace中的包名要和 Dao/mapper 接口的包名一致！
 - resultType：Sql语句执行的返回值！
 - parameterType ： 参数类型！
 
-
-
 1. 编写接口
 
    ```java

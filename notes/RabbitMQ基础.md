@@ -1,5 +1,7 @@
 # RabbitMQ基础
 
+https://www.bilibili.com/video/BV1dE411K7MG
+
 ## 第一章、RabbitMQ简介
 
 ### 1.1、什么是RabbitMQ
@@ -379,7 +381,7 @@ public class Customer1 {
 - 消息的发送方在 向 Exchange发送消息时，也必须指定消息的 RoutingKey。
 - Exchange不再把消息交给每一个绑定的队列，而是根据消息的Routing Key进行判断，只有队列的Routingkey与消息的 Routing key完全一致，才会接收到消息
 
-![image-20200814153159426](RabbitMQ基础.assets/image-20200814153159426.png)
+![image-20210310111337704](RabbitMQ基础.assets/image-20210310111337704.png)
 
 Rounting路由模型，当消息发送时携带一个
 

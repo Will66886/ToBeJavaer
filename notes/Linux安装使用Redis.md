@@ -103,3 +103,9 @@ ifconfig
 ./redis-cli -h <本机IP> -p <端口号>
 ```
 
+## 四、BUG
+
+修改redis.conf文件中配置项stop-writes-on-bgsave-error no （默认值为yes），即当bgsave快照操作出错时停止写数据到磁盘，这样后面写错做均会失败，为了不影响后续写操作，故需将该项值改为no
+
+
+
