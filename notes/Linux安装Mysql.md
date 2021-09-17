@@ -9,7 +9,7 @@ rpm -qa | grep mysql
 rpm -qa | grep mariadb
 ```
 
-有的话用`yum -remove <包名>`卸载
+有的话用`yum remove <包名>`卸载
 
 2. 去官网下载Yum资源包，注意这里安装的是mysql8.0版本，后面版本可能操作会不太一样
 
